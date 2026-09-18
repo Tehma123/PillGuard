@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------------------
+# Dataset: VAIPE has no published license, so nothing derived from its pixels or text is
+# committed. Everything under data/ (raw parquet shards, resized photos, prescription scans,
+# annotations, crop cache, YOLO labels, scenarios) stays local.
+# ---------------------------------------------------------------------------------------
+data/
+**/_hfcache/
+hfcache/
+*.parquet
+*.jsonl
+*.npy
+*.npz
+*.cache
+
+# Training and evaluation outputs (checkpoints, eval records with pill crops, OCR text,
+# parity PNGs of dataset photos)
+artifacts/
+runs/
+outputs/
+weights/
+*.pt
+*.pth
+*.ckpt
+
+# Images anywhere except the aggregate EDA figures (histograms only, no photos)
+*.jpg
+*.jpeg
+*.png
+*.webp
+!docs/figures/*.png
+
+# Browser demo: the INT8 ONNX models and prototype vectors under web/models and web/data
+# are trained weights / embedding vectors, not dataset content, and are needed by the
+# GitHub Pages demo. To publish code only, add the two lines below (remove the leading '#').
+# web/models/
+# web/data/
+web/models/*.fp32.onnx
+web/*.traineddata
+*.traineddata
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

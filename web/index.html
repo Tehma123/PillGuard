@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PillGuard</title>
+  <meta name="description" content="Prescription-aware pill check with a reject option. Runs entirely in your browser; photos never leave your device.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">💊</span>
+      <div>
+        <h1>PillGuard</h1>
+        <p class="tagline" data-i18n="tagline"></p>
+      </div>
+    </div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="vi" class="active">VI</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </header>
+
+  <p class="disclaimer" role="note" data-i18n="disclaimer"></p>
+
+  <main>
+    <section class="card" id="step1">
+      <h2><span class="num">1</span><span data-i18n="step1"></span></h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="pick" class="active" data-i18n="tabPick"></button>
+        <button type="button" role="tab" data-tab="sample" data-i18n="tabSample"></button>
+        <button type="button" role="tab" data-tab="ocr" data-i18n="tabOcr"></button>
+      </div>
+      <div class="tab" id="tab-pick" role="tabpanel">
+        <div class="row">
+          <input id="drug-search" list="drug-list" autocomplete="off" data-i18n-placeholder="searchPlaceholder">
+          <datalist id="drug-list"></datalist>
+          <button type="button" id="add-drug" class="secondary" data-i18n="add"></button>
+        </div>
+        <p class="hint" data-i18n="pickHint"></p>
+      </div>
+      <div class="tab hidden" id="tab-sample" role="tabpanel">
+        <div class="row">
+          <select id="sample-select"></select>
+        </div>
+        <p class="hint" data-i18n="sampleHint"></p>
+      </div>
+      <div class="tab hidden" id="tab-ocr" role="tabpanel">
+        <div class="row">
+          <input type="file" id="rx-file" accept="image/*">
+          <button type="button" id="ocr-run" class="secondary" data-i18n="ocrRun"></button>
+        </div>
+        <p class="hint" data-i18n="ocrHint"></p>
+        <div id="ocr-status" class="status" aria-live="polite"></div>
+        <div id="ocr-candidates" class="candidates"></div>
+      </div>
+      <div class="chips" id="chips" aria-live="polite"></div>
+    </section>
+
+    <section class="card" id="step2">
+      <h2><span class="num">2</span><span data-i18n="step2"></span></h2>
+      <div class="row">
+        <input type="file" id="pill-file" accept="image/*" capture="environment">
+      </div>
+      <p class="hint" data-i18n="photoHint"></p>
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="0" height="0"></canvas>
+      </div>
+    </section>
+
+    <section class="card" id="step3">
+      <h2><span class="num">3</span><span data-i18n="step3"></span></h2>
+      <div class="row">
+        <button type="button" id="run" class="primary" disabled data-i18n="run"></button>
+        <span id="status" class="status" aria-live="polite"></span>
+      </div>
+      <div id="summary" class="summary hidden" role="status"></div>
+      <ol id="results" class="results"></ol>
+      <p id="timings" class="timings"></p>
+    </section>
+  </main>
+
+  <footer>
+    <p><span data-i18n="footer"></span> · <a href="https://github.com/Tehma123/PillGuard" rel="noopener">GitHub</a> · <span id="model-info"></span></p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

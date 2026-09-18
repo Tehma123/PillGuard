@@ -1,0 +1,83 @@
+{
+ "n_images": 9502,
+ "n_pills": 32828,
+ "n_classes": 107,
+ "n_prescriptions": 1173,
+ "n_foreign_pills": 8398,
+ "n_images_with_foreign": 1884,
+ "pills_per_image": {
+  "mean": 3.454851610187329,
+  "median": 3.0,
+  "max": 11
+ },
+ "pills_per_class": {
+  "min": 1,
+  "p25": 51.0,
+  "median": 102.0,
+  "max": 2599
+ },
+ "classes_under_20_pills": [
+  13,
+  21,
+  25,
+  32,
+  49,
+  66,
+  77,
+  86,
+  88,
+  102
+ ],
+ "box_width_rel": {
+  "p5": 0.081640625,
+  "median": 0.1516666666666667,
+  "p95": 0.289375
+ },
+ "drugs_per_prescription": {
+  "mean": 2.424552429667519,
+  "max": 5
+ },
+ "images_per_prescription": {
+  "mean": 8.100596760443308,
+  "max": 132
+ },
+ "image_size": [
+  [
+   "960x1280",
+   6917
+  ],
+  [
+   "1280x960",
+   2039
+  ],
+  [
+   "720x960",
+   270
+  ]
+ ],
+ "split": {
+  "n_train": 6622,
+  "n_val": 1430,
+  "n_test": 1449,
+  "unseen_classes": [
+   4,
+   6,
+   50,
+   63,
+   71,
+   74,
+   80,
+   81,
+   85,
+   95,
+   105,
+   106
+  ],
+  "train_pills": 22823,
+  "train_prescriptions": 777,
+  "val_pills": 4970,
+  "val_prescriptions": 196,
+  "test_pills": 5034,
+  "test_prescriptions": 200
+ }
+}

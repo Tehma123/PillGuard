@@ -1,0 +1,16 @@
+{
+  "name": "pillguard-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node harness for the PillGuard browser pipeline (parity checks). The page itself needs no build step.",
+  "scripts": {
+    "parity": "node parity_node.mjs ../artifacts/parity .",
+    "serve": "npx --yes http-server -p 8080 -c-1 ."
+  },
+  "devDependencies": {
+    "onnxruntime-web": "1.30.0",
+    "pngjs": "^7.0.0",
+    "tesseract.js": "^7.0.0"
+  }
+}
