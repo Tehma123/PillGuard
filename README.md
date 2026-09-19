@@ -10,18 +10,42 @@ decision run in the browser with ONNX Runtime Web.
 > **Research demo, not a medical device.** No dosage advice. Evaluated on one public dataset
 > of 107 Vietnamese drugs; anything else counts as "not on the prescription".
 
-**Demo:** https://tehma123.github.io/PillGuard/ · **Spec:** [SPEC.md](SPEC.md) ·
-**Data provenance, licensing and the week-0 experiments:** [SPEC.md §10](SPEC.md#10-resolved-questions-and-evidence)
+**Demo:** https://tehma123.github.io/PillGuard/ · **Specifications:** [Specifications.md](Specifications.md) ·
+**Data provenance, licensing and the week-0 experiments:** [Specifications.md §10](Specifications.md#10-resolved-questions-and-evidence)
 
 ## Results
 
 Test split: 1,449 photos / 5,034 pills from 200 prescriptions never seen in training
 (`splits/vaipe_v1.json`). Out-of-prescription pills come from three sources: drugs deleted
-from the prescription (the SPEC §3.5 scenario), pills VAIPE itself labels as foreign, and 12
+from the prescription (the Specifications §3.5 scenario), pills VAIPE itself labels as foreign, and 12
 drugs held out of training entirely ("unseen").
 
 <!-- RESULTS:START -->
-_Numbers are filled in by `pillguard eval` (see `artifacts/eval/test_detector/report.md`)._
+| metric (test split, pill level) | PillGuard (with reject) | same model, no reject | SPEC target |
+|---|---|---|---|
+| out-of-prescription recall | **99.4 %** | 94.6 % | ≥ 95 % |
+| false alarm rate (listed pill flagged) | **9.3 %** | 4.4 % | ≤ 10 % |
+| abstain rate | **10.8 %** | 0 % | ≤ 20 % |
+| error rate on decided pills (risk) | **5.0 %** | 4.9 % | lower with reject |
+| out recall, strict (misses and abstains count as missed) | 96.9 % | 94.6 % | – |
+| detection recall (pill found at IoU ≥ 0.5) | 99.6 % | same | – |
+| ECE of p(in prescription) | 0.008 | – | lower than uncalibrated |
+| ECE on validation, before → after calibration | 0.082 → 0.007 | – | – |
+| detector mAP@0.5 / mAP@0.5:0.95 (test) | 0.992 / 0.759 | – | set after baseline |
+| model download (INT8 ONNX) | 4.9 MB (detector 3.3 + embedding 1.7) | – | ≤ 30 MB |
+| Python ONNX latency, 1 thread (detect + embed) | median 87 ms, p90 98 ms | – | ≤ 1 s in browser |
+| Python vs browser (Node/WASM) verdict agreement | 100 % on 40 cases | – | 100 % |
+
+| subset | pills | out recall | false alarm | abstain |
+|---|---|---|---|---|
+| seen drugs | 8851 | 99.8 % | 8.4 % | 12.2 % |
+| unseen drugs (12 held out) | 1850 | 98.8 % | 100.0 % | 4.2 % |
+| out pills: deleted from the prescription | 3056 | 99.8 % | – | 0.8 % |
+| out pills: labelled foreign by VAIPE | 1475 | 98.5 % | – | 5.1 % |
+
+With ground-truth boxes (recognition + decision only): out recall 99.3 %, false alarms 9.9 %, abstain 10.8 %, ECE 0.007.
+
+Full tables, confusion pairs with example crops, risk-coverage and reliability plots: `artifacts/eval/test_detector/report.md` (regenerate with `pillguard eval`).
 <!-- RESULTS:END -->
 
 ## How it works
@@ -36,15 +60,15 @@ photo ─► YOLO11n (1 class: pill) ─► 128 px crops ─► MobileNetV3-S em
 2. **Embedding network.** MobileNetV3-Small + projection to 128-d, trained with an ArcFace
    loss over the seen drugs. At inference the classifier weights are thrown away.
 3. **Prototypes.** Each drug's reference is the mean embedding of its training crops plus two
-   k-means sub-centres (VAIPE ships no reference photos, see [SPEC.md §10.3](SPEC.md#103-where-do-the-per-drug-reference-images-come-from--cropped-from-training-photos)).
+   k-means sub-centres (VAIPE ships no reference photos, see [Specifications.md §10.3](Specifications.md#103-where-do-the-per-drug-reference-images-come-from--cropped-from-training-photos)).
 4. **Decision.** Cosine similarity to every drug, softmax with a fitted temperature and a
    virtual *unknown* class, `p_in = Σ p(listed drugs)`. Two thresholds chosen on validation
    under caps (false alarms ≤ 10 %, abstentions ≤ 20 %) give `in / out / uncertain`.
    The same arithmetic runs in [`web/pipeline.js`](web/pipeline.js); a parity test checks that
    Python and the browser give identical verdicts on identical pixels.
-5. **Prescription input** (SPEC §5.6 options): pick drugs from the list (C), load a sample
+5. **Prescription input** (Specifications §5.6 options): pick drugs from the list (C), load a sample
    prescription (B), or scan a prescription photo with in-browser Vietnamese OCR
-   (A, experimental; see the week-0 experiment in [SPEC.md §10.5](SPEC.md#105-week-0-experiment-in-browser-prescription-ocr-settling-paths-abc)).
+   (A, experimental; see the week-0 experiment in [Specifications.md §10.5](Specifications.md#105-week-0-experiment-in-browser-prescription-ocr-settling-paths-abc)).
 
 Everything the browser needs is under `web/`: two INT8 ONNX models, `prototypes.json`,
 `drugs.json`, `config.json`. No build step; GitHub Pages serves the folder as is.
@@ -114,7 +138,7 @@ unlabelled, so the split here is our own, grouped by prescription. Two things wo
 No dataset content is redistributed here: `data/` and `artifacts/` are git-ignored (raw shards,
 photos, annotations, crops, evaluation records). The repository carries only code, the split
 file (photo names), aggregate statistics, and the trained INT8 weights and prototype vectors
-the demo needs. Licensing evidence is collected in [SPEC.md §10.2](SPEC.md#102-do-the-data-terms-allow-publishing-models-and-a-public-demo--no-licence-text-exists-proceeding-on-documented-precedent).
+the demo needs. Licensing evidence is collected in [Specifications.md §10.2](Specifications.md#102-do-the-data-terms-allow-publishing-models-and-a-public-demo--no-licence-text-exists-proceeding-on-documented-precedent).
 
 ## License
 

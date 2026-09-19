@@ -46,7 +46,7 @@ def export_cases(root: Path, split_path: Path, out_dir: Path, n: int = 30, n_ora
         cases.append({"id": f"{im.file}#det", "png": png, "listed": listed, "boxes": None})
         if k < n_oracle:
             cases.append({"id": f"{im.file}#oracle", "png": png, "listed": listed, "boxes": [list(b) for b in im.boxes]})
-    (out_dir / "cases.json").write_text(json.dumps(cases, indent=1))
+    (out_dir / "cases.json").write_text(json.dumps(cases, indent=1), encoding="utf-8")
     print(f"parity set: {len(cases)} cases -> {out_dir}")
     return cases
 
@@ -62,7 +62,7 @@ def run_python(out_dir: Path, web_dir: Path) -> list[dict]:
         d = r.to_dict()
         results.append({"id": c["id"], "boxes": d["boxes"], "scores": d["scores"], "decisions": d["decisions"],
                         "timings_ms": d["timings_ms"]})
-    (out_dir / "results_py.json").write_text(json.dumps(results, indent=1))
+    (out_dir / "results_py.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
     print(f"python results: {len(results)} cases")
     return results
 
@@ -97,7 +97,7 @@ def compare(out_dir: Path) -> dict:
     rep = {"cases": len(ids), "same_box_count": same_count, "same_verdicts": same_verdicts,
            "verdict_agreement": same_verdicts / max(1, len(ids)), "pills_compared": n_pills,
            "max_abs_p_in_diff": max_p, "max_abs_box_diff_px": max_box, "max_abs_score_diff": max_s, "mismatches": mismatches}
-    (out_dir / "parity_report.json").write_text(json.dumps(rep, indent=1))
+    (out_dir / "parity_report.json").write_text(json.dumps(rep, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in rep.items() if k != "mismatches"}, indent=1))
     if mismatches:
         print("mismatches:", json.dumps(mismatches[:5], indent=1))

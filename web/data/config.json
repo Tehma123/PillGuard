@@ -1,0 +1,38 @@
+{
+ "det_input": 640,
+ "det_pad_value": 114,
+ "det_conf": 0.25,
+ "det_iou": 0.6,
+ "det_max_dets": 100,
+ "crop_size": 128,
+ "crop_context": 0.12,
+ "emb_dim": 128,
+ "emb_mean": [
+  0.485,
+  0.456,
+  0.406
+ ],
+ "emb_std": [
+  0.229,
+  0.224,
+  0.225
+ ],
+ "decision": {
+  "temperature": 0.08628042848821389,
+  "unknown_bias": -0.7850709171066522,
+  "theta_in": 0.9750000000000001,
+  "theta_out": 0.75,
+  "margin": 0.0,
+  "platt_a": 0.849251252790044,
+  "platt_b": 2.8613494463530182
+ },
+ "models": {
+  "detector": "detector.int8.onnx",
+  "embedding": "embed.int8.onnx",
+  "detector_bytes": 3263088,
+  "embedding_bytes": 1668595
+ },
+ "version": "0.1.0",
+ "built": "2026-09-19T14:52:07+00:00",
+ "n_drugs": 88
+}

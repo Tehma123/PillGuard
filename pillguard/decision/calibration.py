@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from pillguard.config import DecisionParams
-from pillguard.decision.matcher import Matcher
+from pillguard.decision.matcher import Matcher, platt
 
 
 @dataclass
@@ -30,17 +30,18 @@ class CalibrationSet:
         return len(self.y_in)
 
 
-def p_in_from(sims: np.ndarray, masks: np.ndarray, temperature: float, unknown_bias: float | None) -> np.ndarray:
+def p_in_from(sims: np.ndarray, masks: np.ndarray, temperature: float, unknown_bias: float | None,
+              platt_a: float = 1.0, platt_b: float = 0.0) -> np.ndarray:
     n = sims.shape[0]
     if unknown_bias is None:
         z = sims / temperature
         z = z - z.max(1, keepdims=True)
         p = np.exp(z); p /= p.sum(1, keepdims=True)
-        return (p * masks).sum(1)
+        return platt((p * masks).sum(1), platt_a, platt_b)
     z = np.concatenate([sims, np.full((n, 1), unknown_bias, np.float32)], 1) / temperature
     z = z - z.max(1, keepdims=True)
     p = np.exp(z); p /= p.sum(1, keepdims=True)
-    return (p[:, :-1] * masks).sum(1)
+    return platt((p[:, :-1] * masks).sum(1), platt_a, platt_b)
 
 
 def binary_nll(p: np.ndarray, y: np.ndarray, eps: float = 1e-7) -> float:
@@ -84,6 +85,15 @@ def fit_temperature_and_bias(cal: CalibrationSet, init: DecisionParams | None = 
                           margin=init.margin)
 
 
+def fit_platt(p_in: np.ndarray, y_in: np.ndarray) -> tuple[float, float]:
+    """Fit ``(a, b)`` of :func:`pillguard.decision.matcher.platt` by binary NLL, from the identity."""
+    from scipy.optimize import minimize
+
+    r = minimize(lambda x: binary_nll(platt(p_in, float(x[0]), float(x[1])), y_in), np.array([1.0, 0.0]),
+                 method="Nelder-Mead", options={"xatol": 1e-4, "fatol": 1e-6, "maxiter": 2000})
+    return float(r.x[0]), float(r.x[1])
+
+
 def build_calibration_set(matcher: Matcher, embs: np.ndarray, listed_sets: list[list[int]], y_in: np.ndarray,
                           seen: np.ndarray | None = None) -> CalibrationSet:
     sims = matcher.class_similarities(embs)
@@ -93,12 +103,13 @@ def build_calibration_set(matcher: Matcher, embs: np.ndarray, listed_sets: list[
 
 def calibration_report(cal: CalibrationSet, before: DecisionParams, after: DecisionParams) -> dict:
     p_before = p_in_from(cal.sims, cal.masks, before.temperature, None)
-    p_after = p_in_from(cal.sims, cal.masks, after.temperature, after.unknown_bias)
+    p_after = p_in_from(cal.sims, cal.masks, after.temperature, after.unknown_bias, after.platt_a, after.platt_b)
     return {
         "n": len(cal),
         "before": {"temperature": before.temperature, "unknown_bias": None,
                    "nll": binary_nll(p_before, cal.y_in), "ece": expected_calibration_error(p_before, cal.y_in)["ece"]},
         "after": {"temperature": after.temperature, "unknown_bias": after.unknown_bias,
+                  "platt_a": after.platt_a, "platt_b": after.platt_b,
                   "nll": binary_nll(p_after, cal.y_in), "ece": expected_calibration_error(p_after, cal.y_in)["ece"]},
         "reliability_after": expected_calibration_error(p_after, cal.y_in)["bins"],
         "reliability_before": expected_calibration_error(p_before, cal.y_in)["bins"],

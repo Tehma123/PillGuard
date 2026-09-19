@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,6 +80,7 @@ def main() -> None:
     s = re.sub(r"<!-- RESULTS:START -->.*?<!-- RESULTS:END -->",
                "<!-- RESULTS:START -->\n" + block + "\n<!-- RESULTS:END -->", s, flags=re.S)
     readme.write_text(s, encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # the block contains '>=' as U+2265
     print(block)
 
 

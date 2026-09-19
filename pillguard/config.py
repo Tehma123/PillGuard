@@ -63,6 +63,8 @@ class DecisionParams:
     theta_in: float = 0.80        # p_in >= theta_in  -> in prescription
     theta_out: float = 0.30       # p_in <= theta_out -> out of prescription
     margin: float = 0.0           # optional extra margin requirement s_in - s_out
+    platt_a: float = 1.0          # p_in recalibration sigmoid(a * logit(p_in) + b); (1, 0) = identity
+    platt_b: float = 0.0
 
     def to_dict(self) -> dict:
         return {
@@ -71,6 +73,8 @@ class DecisionParams:
             "theta_in": self.theta_in,
             "theta_out": self.theta_out,
             "margin": self.margin,
+            "platt_a": self.platt_a,
+            "platt_b": self.platt_b,
         }
 
     @classmethod

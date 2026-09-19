@@ -3,7 +3,7 @@
 # committed. Everything under data/ (raw parquet shards, resized photos, prescription scans,
 # annotations, crop cache, YOLO labels, scenarios) stays local.
 # ---------------------------------------------------------------------------------------
-data/
+/data/
 **/_hfcache/
 hfcache/
 *.parquet

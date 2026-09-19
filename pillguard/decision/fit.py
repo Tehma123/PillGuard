@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -35,6 +36,7 @@ from pillguard.data.vaipe import load_pill_images, prescription_drug_table
 from pillguard.decision.calibration import (
     CalibrationSet,
     calibration_report,
+    fit_platt,
     fit_temperature_and_bias,
     p_in_from,
 )
@@ -96,8 +98,12 @@ def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out
     # 3. calibration + thresholds
     before = DecisionParams(temperature=1.0 / arcface_scale, unknown_bias=0.0)
     fitted = fit_temperature_and_bias(cal)
+    raw = p_in_from(cal.sims, cal.masks, fitted.temperature, fitted.unknown_bias)
+    platt_a, platt_b = fit_platt(raw, cal.y_in)
+    fitted = replace(fitted, platt_a=platt_a, platt_b=platt_b)
     cal_rep = calibration_report(cal, before, fitted)
-    p_in = p_in_from(cal.sims, cal.masks, fitted.temperature, fitted.unknown_bias)
+    p_in = p_in_from(cal.sims, cal.masks, fitted.temperature, fitted.unknown_bias,
+                     fitted.platt_a, fitted.platt_b)
     params, th_info = choose_thresholds(p_in, cal.y_in, fitted, max_fpr=max_fpr, max_abstain=max_abstain)
     no_reject = selective_metrics(p_in, cal.y_in, DecisionParams(fitted.temperature, fitted.unknown_bias, 0.5, 0.5))
     report = {
@@ -108,8 +114,8 @@ def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out
                           for r in sorted(set(reasons))},
         "params": params.to_dict(),
     }
-    (out_dir / "params.json").write_text(json.dumps(params.to_dict(), indent=1))
-    (out_dir / "fit_report.json").write_text(json.dumps(report, indent=1))
+    (out_dir / "params.json").write_text(json.dumps(params.to_dict(), indent=1), encoding="utf-8")
+    (out_dir / "fit_report.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in report.items() if k not in ("val_risk_coverage", "calibration")}, indent=1))
     print("ECE before/after:", cal_rep["before"]["ece"], cal_rep["after"]["ece"])
     return report

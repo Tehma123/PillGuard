@@ -20,6 +20,8 @@ import numpy as np
 import torch
 
 from pillguard.config import ARTIFACTS_DIR, CROP_SIZE
+
+N_FP32_CONVS = 16             # backbone convolutions left unquantised (see early_conv_nodes)
 from pillguard.embed.crops import eval_crop_array, filter_rows, load_crop_index
 from pillguard.embed.model import load_embedding_net
 from pillguard.embed.train import class_means, nearest_prototype_accuracy
@@ -35,8 +37,23 @@ def embed_with_onnx(session, crops_u8: np.ndarray, batch: int = 64) -> np.ndarra
     return np.concatenate(out) if out else np.zeros((0, 0), np.float32)
 
 
+def early_conv_nodes(fp32_path: Path, n: int = N_FP32_CONVS) -> list[str]:
+    """First ``n`` convolutions of the backbone, to keep in fp32.
+
+    MobileNetV3's early layers see the normalised crop directly and produce activations with
+    a far wider range than the rest of the network, so one uint8 scale wrecks them: quantising
+    them costs ~67 points of nearest-prototype accuracy while saving almost no bytes (they
+    hold a few thousand weights out of 1.5 M).
+    """
+    import onnx
+
+    convs = [node.name for node in onnx.load(str(fp32_path)).graph.node if node.op_type == "Conv"]
+    return convs[:n]
+
+
 def export_embedding(ckpt: Path, root: Path, split_path: Path, out_dir: Path, n_calib: int = 256,
-                     n_check: int = 4000, method: str = "minmax", seed: int = 0) -> dict:
+                     n_check: int = 4000, method: str = "percentile", seed: int = 0,
+                     n_fp32_convs: int = N_FP32_CONVS) -> dict:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     model = load_embedding_net(ckpt)
@@ -56,7 +73,8 @@ def export_embedding(ckpt: Path, root: Path, split_path: Path, out_dir: Path, n_
         val_rows = [val_rows[i] for i in sorted(rng.choice(len(val_rows), n_check, replace=False))]
     calib_rows = [train_rows[i] for i in sorted(rng.choice(len(train_rows), min(n_calib, len(train_rows)), replace=False))]
     calib = [to_embed_input(eval_crop_array(calib_rows[i:i + 8], root)) for i in range(0, len(calib_rows), 8)]
-    int8 = quantize_static_int8(fp32, out_dir / "embed.int8.onnx", calib, "input", method=method)
+    int8 = quantize_static_int8(fp32, out_dir / "embed.int8.onnx", calib, "input", method=method,
+                                nodes_to_exclude=early_conv_nodes(fp32, n_fp32_convs))
 
     tr_u8, va_u8 = eval_crop_array(train_rows, root), eval_crop_array(val_rows, root)
     cls_idx = {c: i for i, c in enumerate(classes)}
@@ -77,7 +95,7 @@ def export_embedding(ckpt: Path, root: Path, split_path: Path, out_dir: Path, n_
     if len(t_e):
         s = ort_session(fp32)
         report["torch_vs_fp32_max_abs"] = float(np.abs(t_e - run(s, to_embed_input(va_u8[:64]))).max())
-    (out_dir / "embed_export.json").write_text(json.dumps(report, indent=1))
+    (out_dir / "embed_export.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
     return report
 
@@ -92,9 +110,11 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--split", type=Path, default=default_split_path())
     ap.add_argument("--out", type=Path, default=ARTIFACTS_DIR / "export")
     ap.add_argument("--n-calib", type=int, default=256)
-    ap.add_argument("--method", default="minmax", choices=["minmax", "entropy", "percentile"])
+    ap.add_argument("--method", default="percentile", choices=["minmax", "entropy", "percentile"])
+    ap.add_argument("--n-fp32-convs", type=int, default=N_FP32_CONVS)
     a = ap.parse_args(argv)
-    export_embedding(a.ckpt, a.root, a.split, a.out, n_calib=a.n_calib, method=a.method)
+    export_embedding(a.ckpt, a.root, a.split, a.out, n_calib=a.n_calib, method=a.method,
+                     n_fp32_convs=a.n_fp32_convs)
 
 
 if __name__ == "__main__":

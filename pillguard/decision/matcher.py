@@ -28,6 +28,18 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
+
+def platt(p: np.ndarray, a: float, b: float, eps: float = 1e-6) -> np.ndarray:
+    """Affine recalibration in logit space: ``sigmoid(a * logit(p) + b)``; ``(1, 0)`` is a no-op.
+
+    A single temperature inside the softmax can sharpen ``p_in`` but not shift its reliability
+    curve, which leaves the fitted probabilities underconfident in the middle of the range.
+    """
+    if a == 1.0 and b == 0.0:
+        return p
+    q = np.clip(p, eps, 1 - eps)
+    return 1.0 / (1.0 + np.exp(-(a * np.log(q / (1 - q)) + b)))
+
 from pillguard.config import DecisionParams
 
 
@@ -94,7 +106,7 @@ class Matcher:
         z = np.concatenate([sims, np.full((n, 1), params.unknown_bias, np.float32)], 1) / params.temperature
         p = _softmax(z)
         mask = np.broadcast_to(mask, (n, self.n_classes))
-        p_in = (p[:, :-1] * mask).sum(1)
+        p_in = platt((p[:, :-1] * mask).sum(1), params.platt_a, params.platt_b)
         return p_in, p[:, -1], p[:, :-1]
 
     # -- decisions ----------------------------------------------------------------------

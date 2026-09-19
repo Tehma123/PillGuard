@@ -169,11 +169,20 @@ export function l2normalize(v) {
   return out;
 }
 
+/** Affine recalibration in logit space: sigmoid(a * logit(p) + b); (1, 0) is a no-op. */
+export function platt(p, a, b) {
+  const A = a === undefined || a === null ? 1 : a;
+  const B = b === undefined || b === null ? 0 : b;
+  if (A === 1 && B === 0) return p;
+  const q = Math.min(Math.max(p, 1e-6), 1 - 1e-6);
+  return 1 / (1 + Math.exp(-(A * Math.log(q / (1 - q)) + B)));
+}
+
 // ---------------------------------------------------------------------------------------
 // Matcher (prescription-aware decision)
 // ---------------------------------------------------------------------------------------
 export class Matcher {
-  /** prototypes: {dim, classes:[{id,name,vectors:[[...]]}]}; params: {temperature, unknown_bias, theta_in, theta_out, margin} */
+  /** prototypes: {dim, classes:[{id,name,vectors:[[...]]}]}; params: {temperature, unknown_bias, theta_in, theta_out, margin, platt_a, platt_b} */
   constructor(prototypes, params) {
     this.params = params;
     this.dim = prototypes.dim;
@@ -215,6 +224,7 @@ export class Matcher {
     let sum = 0; const e = new Float64Array(C + 1);
     for (let c = 0; c <= C; c++) { e[c] = Math.exp(z[c] - zmax); sum += e[c]; }
     let pIn = 0; for (let c = 0; c < C; c++) if (mask[c]) pIn += e[c] / sum;
+    pIn = platt(pIn, p.platt_a, p.platt_b);
     const pUnknown = e[C] / sum;
     let sIn = -1, bi = null, sOut = -1, oi = null, anyListed = false, anyOther = false;
     for (let c = 0; c < C; c++) {

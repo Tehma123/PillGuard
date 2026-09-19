@@ -60,7 +60,7 @@ def evaluate(weights: Path, data_yaml: Path, split: str = "test", imgsz: int = D
     if isinstance(speed, dict):
         metrics["speed_ms"] = {k: float(v) for k, v in speed.items()}
     out_json = out_json or Path(weights).parents[1] / f"metrics_{split}.json"
-    Path(out_json).write_text(json.dumps(metrics, indent=1))
+    Path(out_json).write_text(json.dumps(metrics, indent=1), encoding="utf-8")
     print(json.dumps(metrics, indent=1))
     return metrics
 

@@ -48,6 +48,27 @@ def decode(raw: np.ndarray, conf: float = DET_CONF, iou: float = DET_IOU, max_de
     return boxes[keep], scores[keep]
 
 
+def fp32_tail_nodes(fp32_path: Path) -> list[str]:
+    """Decode nodes between the head convolutions and the graph output, to keep in fp32.
+
+    ``output0`` concatenates box coordinates in letterbox pixels (0..640) with sigmoid
+    scores (0..1). A single uint8 scale over that tensor (~2.5 per step) rounds every score
+    to zero, so the decode arithmetic after the head convolutions stays unquantised.
+    """
+    import onnx
+
+    graph = onnx.load(str(fp32_path)).graph
+    producer = {out: n for n in graph.node for out in n.output}
+    tail, frontier = [], [o.name for o in graph.output]
+    while frontier:
+        node = producer.get(frontier.pop())
+        if node is None or node.op_type == "Conv" or node.name in tail:
+            continue
+        tail.append(node.name)
+        frontier.extend(node.input)
+    return tail
+
+
 def calibration_inputs(image_paths: list[Path], n: int = 64, seed: int = 0) -> list[np.ndarray]:
     rng = np.random.default_rng(seed)
     idx = rng.choice(len(image_paths), size=min(n, len(image_paths)), replace=False)
@@ -78,10 +99,11 @@ def export_detector(weights: Path, out_dir: Path, calib_images: list[Path], imgs
     fp32 = export_fp32(weights, out_dir / "detector.fp32.onnx", imgsz)
     int8 = out_dir / "detector.int8.onnx"
     calib = calibration_inputs(calib_images, n_calib)
-    quantize_static_int8(fp32, int8, calib, input_name="images", method=method)
+    quantize_static_int8(fp32, int8, calib, input_name="images", method=method,
+                         nodes_to_exclude=fp32_tail_nodes(fp32))
     report = {"fp32_mb": onnx_size_mb(fp32), "int8_mb": onnx_size_mb(int8),
               "agreement": compare_models(fp32, int8, calib_images)}
-    (out_dir / "detector_export.json").write_text(json.dumps(report, indent=1))
+    (out_dir / "detector_export.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
     return report
 

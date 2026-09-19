@@ -206,8 +206,8 @@ def run(root: Path, split_path: Path, web_dir: Path | None, out_dir: Path, mode:
         f.writelines(json.dumps(r) + "\n" for r in records)
     with open(out_dir / "spurious.jsonl", "w", encoding="utf-8") as f:
         f.writelines(json.dumps(r) + "\n" for r in spurious)
-    (out_dir / "metrics.json").write_text(json.dumps(metrics, indent=1))
-    (out_dir / "confusion.json").write_text(json.dumps(conf, indent=1, ensure_ascii=False))
+    (out_dir / "metrics.json").write_text(json.dumps(metrics, indent=1), encoding="utf-8")
+    (out_dir / "confusion.json").write_text(json.dumps(conf, indent=1, ensure_ascii=False), encoding="utf-8")
     try:
         plot_figures(out_dir, metrics)
         save_confusion_examples(out_dir, records, conf, root)

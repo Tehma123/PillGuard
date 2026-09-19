@@ -1,0 +1,579 @@
+[
+{
+"id": 0,
+"name": "PARACETAMOL 500MG 500mg",
+"aliases": []
+},
+{
+"id": 1,
+"name": "TROYSAR AM 5mg +50mg",
+"aliases": [
+"TYDOL PM 500mg + 25mg"
+]
+},
+{
+"id": 2,
+"name": "DIXIREIN 375mg",
+"aliases": [
+"Carbocistein (Anpemux) 250mg",
+"ANPEMUX 250mg"
+]
+},
+{
+"id": 3,
+"name": "MEDIPLEX 800mg",
+"aliases": []
+},
+{
+"id": 5,
+"name": "SERGUROP 10mg",
+"aliases": []
+},
+{
+"id": 7,
+"name": "KATRYPSIN 4,2mg",
+"aliases": [
+"STATRIPSINE 4,2mg",
+"ALFACHIM 4,2mg"
+]
+},
+{
+"id": 8,
+"name": "KAVASDIN 5 5mg",
+"aliases": [
+"PAMLONOR 5mg",
+"AMCARDIA-5 5mg",
+"CARDILOPIN 5mg"
+]
+},
+{
+"id": 9,
+"name": "AMOXYCILIN 250MG 0,25g",
+"aliases": []
+},
+{
+"id": 10,
+"name": "FABAMOX 500 500mg",
+"aliases": [
+"NOVOXIM-500 0,5g",
+"Amoxicilin (Fabamox 500) 500mg",
+"AMOXICILIN 500MG 500mg",
+"AMOXICILLIN 500MG 0,5g",
+"FABAMOX 500MG 500mg"
+]
+},
+{
+"id": 11,
+"name": "ASPIRIN 81MG 81mg",
+"aliases": []
+},
+{
+"id": 12,
+"name": "INBACID 10 10mg",
+"aliases": [
+"LENINARTO 10 10mg"
+]
+},
+{
+"id": 14,
+"name": "LENINARTO 10 10mg",
+"aliases": [
+"INBACID 10 10mg",
+"SERGUROP 10mg"
+]
+},
+{
+"id": 15,
+"name": "Atorvastatin (Atoris 20mg) 20mg",
+"aliases": [
+"ATORIS 20MG 20mg",
+"Đinh lăng, bạch quả (Hoạt huyết dưỡng não) 150mg+20mg"
+]
+},
+{
+"id": 16,
+"name": "AVARINO 60mg+300mg",
+"aliases": []
+},
+{
+"id": 17,
+"name": "CEFIXIM 200 200mg",
+"aliases": []
+},
+{
+"id": 18,
+"name": "Bố GAN P/H 125mg+100mg+25mg",
+"aliases": []
+},
+{
+"id": 19,
+"name": "CEFADROXIL 500MG 0,5g",
+"aliases": [
+"CEFADROXIL 0,5g",
+"CEFADROXIL 500MG 500mg",
+"DROXICEF 500MG 0,5g",
+"DROXICEF 0,5g"
+]
+},
+{
+"id": 20,
+"name": "TIOGA 33,33mg+1g+0,34g+0,25g+0,17g",
+"aliases": []
+},
+{
+"id": 21,
+"name": "DIXIREIN 375mg",
+"aliases": []
+},
+{
+"id": 22,
+"name": "CARDILOPIN 5mg",
+"aliases": []
+},
+{
+"id": 23,
+"name": "CARUDXAN 2mg",
+"aliases": []
+},
+{
+"id": 24,
+"name": "XITORAN 0,5g",
+"aliases": [
+"CEFADROXIL 500MG 0,5g",
+"CEFADROXIL 0,5g"
+]
+},
+{
+"id": 26,
+"name": "Cefalexin (Firstlexin 500) 0,5g",
+"aliases": [
+"CEFACYL 500 0,5g",
+"CEPHALEXIN PMP 500 0,5g",
+"HAPENXIN CAPSULES 0,5g"
+]
+},
+{
+"id": 27,
+"name": "INGARON 200 DST 200mg",
+"aliases": []
+},
+{
+"id": 28,
+"name": "ALFACHIM 4,2mg",
+"aliases": []
+},
+{
+"id": 29,
+"name": "CLORPHENIRAMIN 4mg",
+"aliases": [
+"Chlorpheniramin (hydrogen maleat) (Clorpheniramin) 4mg"
+]
+},
+{
+"id": 30,
+"name": "COLCHICIN 1mg",
+"aliases": [
+"GOUTCOLCIN 1mg"
+]
+},
+{
+"id": 31,
+"name": "SAVI PROLOL 5 5mg",
+"aliases": []
+},
+{
+"id": 33,
+"name": "BLOZA 50mg",
+"aliases": []
+},
+{
+"id": 34,
+"name": "FUDCIME 200MG 200mg",
+"aliases": []
+},
+{
+"id": 35,
+"name": "CHORLATCYN 125mg+50mg+50mg+25mg",
+"aliases": []
+},
+{
+"id": 36,
+"name": "DROMASM FORT 80mg",
+"aliases": [
+"Drotaverin clohydrat (Dromasm fort) 80mg"
+]
+},
+{
+"id": 37,
+"name": "DIAMICRON MR TAB 60MG 30'S 60mg",
+"aliases": [
+"DIAMICRON MR TAB 30MG 60'S 30mg",
+"PYME DIAPRO MR 30mg",
+"GOLDDICRON 30mg",
+"Gliclazid (Golddicron) 30mg"
+]
+},
+{
+"id": 38,
+"name": "LAZIBET MR 60 60mg",
+"aliases": [
+"GLUZITOP MR 60 60mg"
+]
+},
+{
+"id": 39,
+"name": "DICLOFENAC 50mg",
+"aliases": []
+},
+{
+"id": 40,
+"name": "MEZAFEN 60mg",
+"aliases": [
+"DICLOFENAC 50mg",
+"Loxoprofen (Mezafen) 60mg"
+]
+},
+{
+"id": 41,
+"name": "SAVIPROLOL 2,5 2,5mg",
+"aliases": [
+"Bisoprolol (SaviProlol 2,5) 2,5mg"
+]
+},
+{
+"id": 42,
+"name": "Gliclazid (Golddicron) 30mg",
+"aliases": [
+"DOROCRON - MR 30mg"
+]
+},
+{
+"id": 43,
+"name": "CEFADROXIL 500MG 0,5g",
+"aliases": [
+"CEFADROXIL 0,5g",
+"DROXICEF 500MG 0,5g",
+"DROXICEF 0,5g",
+"CEFADROXIL 500MG 500mg",
+"XITORAN 0,5g"
+]
+},
+{
+"id": 45,
+"name": "EBITAC 12.5 10mg + 12,5mg",
+"aliases": [
+"Enalapril thydrochlorothiazide (Ebitac 12.5) 10mg + 12,5mg"
+]
+},
+{
+"id": 46,
+"name": "ENALAPRIL 5mg",
+"aliases": []
+},
+{
+"id": 47,
+"name": "RENAPRIL 5MG 5mg",
+"aliases": []
+},
+{
+"id": 48,
+"name": "DROMASM FORT 80mg",
+"aliases": [
+"Drotaverin clohydrat (Dromasm fort) 80mg"
+]
+},
+{
+"id": 51,
+"name": "METRONIDAZOL 250 250mg",
+"aliases": [
+"Metronidazol (Metronidazol 250) 250 mg",
+"METRONIDAZOL 250mg"
+]
+},
+{
+"id": 52,
+"name": "MEDIBOGAN 200mg + 150mg + 16mg",
+"aliases": []
+},
+{
+"id": 54,
+"name": "GLUCOFAST 500 500mg",
+"aliases": [
+"METFORMIN 500 500mg",
+"Metformin (Metformin 500) 500mg"
+]
+},
+{
+"id": 55,
+"name": "GLUCOFAST 850 850mg",
+"aliases": [
+"MEGLUCON TAB 850MG 3X10'S 850mg"
+]
+},
+{
+"id": 56,
+"name": "MEGLUCON 1000 1000mg",
+"aliases": [
+"Metformin (Meglucon 1000) 1000 mg"
+]
+},
+{
+"id": 57,
+"name": "GLUCOFAST 850 850mg",
+"aliases": []
+},
+{
+"id": 58,
+"name": "FIBROFIN-145 145mg",
+"aliases": []
+},
+{
+"id": 59,
+"name": "BROMHEXIN ACTAVIS 8MG 8mg",
+"aliases": [
+"BROMHEXIN ACTAVIS 8mg"
+]
+},
+{
+"id": 60,
+"name": "TYDOL PM 500mg + 25mg",
+"aliases": [
+"PARACETAMOL 500MG 500mg"
+]
+},
+{
+"id": 61,
+"name": "HAPENXIN CAPSULES 0,5g",
+"aliases": [
+"CEFACYL 500 0,5g",
+"Cefalexin (Firstlexin 500) 0,5g"
+]
+},
+{
+"id": 62,
+"name": "KAHAGAN 0,1g+0,075g+0,075g",
+"aliases": []
+},
+{
+"id": 64,
+"name": "HOẠT HUYẾT DƯỠNG NÃO 150mg+20mg",
+"aliases": [
+"Đinh lăng, bạch quả (Hoạt huyết dưỡng não) 150mg+20mg",
+"HOẠT HUYẾT DƯỠNG NÃO BDF 150mg+5mg",
+"HOẠT HUYẾT DƯỠNG NÃO QN 150mg+20mg",
+"Atorvastatin (Atoris 20mg) 20mg"
+]
+},
+{
+"id": 65,
+"name": "BỐ HUYẾT ÍCH NÃO BDF 40mg+300mg",
+"aliases": []
+},
+{
+"id": 66,
+"name": "KAGASDINE 20mg",
+"aliases": []
+},
+{
+"id": 67,
+"name": "Kim tiền thảo, râu ngô (Kim tiền thảo) 120mg+35mg",
+"aliases": []
+},
+{
+"id": 68,
+"name": "LIVONIC 2500mg+400mg+500mg+85mg",
+"aliases": []
+},
+{
+"id": 69,
+"name": "GAPHYTON S 100mg+75mg+7,5mg",
+"aliases": []
+},
+{
+"id": 70,
+"name": "SERGUROP 10mg",
+"aliases": [
+"VACO LORATADINE 10mg",
+"Loratadin (Sergurop) 10mg"
+]
+},
+{
+"id": 72,
+"name": "SAVILOSARTAN 50 50mg",
+"aliases": [
+"SAVI LOSARTAN 50 50mg"
+]
+},
+{
+"id": 73,
+"name": "VIPREDNI 16MG 16mg",
+"aliases": [
+"MENISON 16MG 16mg",
+"METHYLSOLONE 16MG 16mg"
+]
+},
+{
+"id": 75,
+"name": "VIPREDNI 16MG 16mg",
+"aliases": [
+"MENISON 16MG 16mg"
+]
+},
+{
+"id": 76,
+"name": "Methyl prednisolon (Methylprednisolon 4) 4mg",
+"aliases": [
+"METHYLPREDNISOLON 4 4mg"
+]
+},
+{
+"id": 77,
+"name": "VIPREDNI 16MG 16mg",
+"aliases": []
+},
+{
+"id": 78,
+"name": "MEZAFEN 60mg",
+"aliases": [
+"Loxoprofen (Mezafen) 60mg"
+]
+},
+{
+"id": 79,
+"name": "HANGITOR PLUS 40mg+12,5mg",
+"aliases": [
+"Telmisartan % hydroclorothiazid (Hangitor plus) 40mg+12,5mg"
+]
+},
+{
+"id": 82,
+"name": "NOVOXIM-500 0,5g",
+"aliases": []
+},
+{
+"id": 83,
+"name": "THANH NHIỆT TIÊU ĐỘC LIVERGOOD",
+"aliases": []
+},
+{
+"id": 84,
+"name": "NIFEDIPIN HASAN 20 RETARD 20mg",
+"aliases": [
+"NIFEDIPIN T20 STADA RETARD 20mg"
+]
+},
+{
+"id": 86,
+"name": "Olanzapin 10mg (Olanxol)",
+"aliases": []
+},
+{
+"id": 87,
+"name": "KAGASDINE 20mg",
+"aliases": [
+"Omeprazol (Kagasdine) 20mg"
+]
+},
+{
+"id": 88,
+"name": "PANACTOL 500mg",
+"aliases": []
+},
+{
+"id": 89,
+"name": "MYPARA 500 500mg",
+"aliases": [
+"PARTAMOL TAB. 500mg",
+"PANACTOL 500mg",
+"Paracetamol (Partamol Tab.) 500mg",
+"PARACETAMOL 500MG 500mg"
+]
+},
+{
+"id": 90,
+"name": "PANACTOL 500mg",
+"aliases": [
+"MYPARA 500 500mg",
+"PARTAMOL TAB. 500mg"
+]
+},
+{
+"id": 91,
+"name": "PANACTOL 500mg",
+"aliases": [
+"PARTAMOL TAB. 500mg",
+"Paracetamol (Partamol Tab.) 500mg",
+"PARACETAMOL 500MG 500mg",
+"MYPARA 500 500mg"
+]
+},
+{
+"id": 92,
+"name": "STACETAM 800MG 800mg",
+"aliases": []
+},
+{
+"id": 93,
+"name": "PRAZOPRO 40mg",
+"aliases": []
+},
+{
+"id": 94,
+"name": "SPASVINA 40mg",
+"aliases": []
+},
+{
+"id": 96,
+"name": "SAVI ACARBOSE 100 100mg",
+"aliases": []
+},
+{
+"id": 97,
+"name": "CHORLATCYN 125mg+50mg+50mg+25mg",
+"aliases": [
+"CHORLATCYN 125mg;50mg;50mg;25mg"
+]
+},
+{
+"id": 98,
+"name": "ALVERIN 40mg",
+"aliases": []
+},
+{
+"id": 99,
+"name": "PARTAMOL TAB. 500mg",
+"aliases": [
+"PANACTOL 500mg",
+"PARACETAMOL 500MG 500mg",
+"MYPARA 500 500mg",
+"Paracetamol (Partamol Tab.) 500mg"
+]
+},
+{
+"id": 100,
+"name": "SETBLOOD 115mg+100mg+50mcg",
+"aliases": []
+},
+{
+"id": 101,
+"name": "TYDOL PM 500mg + 25mg",
+"aliases": []
+},
+{
+"id": 103,
+"name": "VINA-AD 2000ui+ 400ui",
+"aliases": [
+"VITAMINAD 2500ui+200ui"
+]
+},
+{
+"id": 104,
+"name": "COSYNDO B 175mg+175mg+125mcg",
+"aliases": [
+"SETBLOOD 115mg+100mg+50mcg",
+"Vitamin b1 + b6 + b12 (Savi 3B) 100mg+100mg+0,15mg",
+"COSYNDO B 175mg+175mg+125mg",
+"SAVI 3B 100mg+100mg+0,15mg"
+]
+}
+]
