@@ -45,7 +45,7 @@ drugs held out of training entirely ("unseen").
 
 With ground-truth boxes (recognition + decision only): out recall 99.3 %, false alarms 9.9 %, abstain 10.8 %, ECE 0.007.
 
-Full tables, confusion pairs with example crops, risk-coverage and reliability plots: `artifacts/eval/test_detector/report.md` (regenerate with `pillguard eval`).
+Full tables, calibration and quantisation detail, risk-coverage and reliability plots: [docs/benchmark.md](docs/benchmark.md). Confusion pairs with example crops are VAIPE photographs and stay out of the repository; `pillguard eval` writes them under `artifacts/eval/`.
 <!-- RESULTS:END -->
 
 ## How it works
@@ -103,7 +103,7 @@ pillguard eval --mode detector        # artifacts/eval/test_detector/report.md
 pillguard eval --mode oracle          # ground-truth boxes: recognition + decision only
 
 pillguard parity --export && (cd web && npm ci && npm run parity) && pillguard parity --compare
-python scripts/fill_readme.py         # writes the results table above from artifacts/
+python scripts/fill_readme.py         # results table above + docs/benchmark.md, from artifacts/
 pytest                                # unit tests + JS/Python parity on synthetic data (no dataset needed)
 ```
 
@@ -122,7 +122,7 @@ pytest                                # unit tests + JS/Python parity on synthet
 | `pillguard/pipeline.py` | reference ONNX Runtime pipeline |
 | `web/` | the demo: `index.html`, `app.js`, `pipeline.js`, `ocr_match.js`, models and data |
 | `splits/vaipe_v1.json` | the fixed split (file names + held-out drugs) |
-| `docs/` | `eda.md`, `eda_stats.json`, figures |
+| `docs/` | `eda.md` (dataset), `benchmark.md` (results), `eda_stats.json`, figures |
 | `tests/` | pytest suite; runs on synthetic data, including the Node parity test |
 
 ## Data

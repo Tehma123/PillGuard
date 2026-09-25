@@ -1,6 +1,8 @@
 # End-to-end training + export + evaluation after `pillguard ingest` (Windows PowerShell 5.1+).
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\run_pipeline.ps1 [-DetEpochs 30] [-EmbEpochs 20]
-# About 80-90 minutes on an RTX 3060 (measured: detector 2.3 min/epoch, embedding 1.4 min/epoch). Each stage logs under artifacts\ and can be re-run alone
+# About 35 minutes on an RTX 3060 once the crop cache exists (measured over 30 + 20 epochs: detector
+# 0.85 min/epoch, embedding 1.09 min/epoch, the two sharing the card); the first run also writes
+# 2 x 32828 crops. Each stage logs under artifacts\ and can be re-run alone
 # with the matching `python -m pillguard.cli ...` command.
 param([int]$DetEpochs = 30, [int]$EmbEpochs = 20, [string]$DetExtra = "")   # e.g. -DetExtra "--cache ram --workers 8"
 $ErrorActionPreference = "Stop"

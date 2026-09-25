@@ -1,4 +1,4 @@
-"""Export the trained detector to ONNX (fp32) and static INT8, then sanity-check both.
+"""Export the trained detector to ONNX (fp32) and mixed-precision INT8, then check both.
 
 Usage::
 
@@ -9,6 +9,10 @@ Outputs ``detector.fp32.onnx`` and ``detector.int8.onnx``. The ONNX graph takes
 ``(1, 3, 640, 640)`` float in [0, 1] and returns ``(1, 5, 8400)``: cx, cy, w, h, score in
 letterbox pixels (Ultralytics' non-NMS export). Decoding and NMS live in
 :mod:`pillguard.pipeline` and ``web/pipeline.js``.
+
+The INT8 model keeps the decode nodes after the head convolutions in fp32 (see
+:func:`fp32_tail_nodes`) and the export fails rather than shipping a model whose detections
+have drifted away from fp32 (see :func:`check_detector_quantisation`).
 """
 
 from __future__ import annotations
@@ -22,7 +26,17 @@ import numpy as np
 
 from pillguard.config import ARTIFACTS_DIR, DET_CONF, DET_INPUT, DET_IOU, DET_MAX_DETS
 from pillguard.imaging import box_iou_matrix, letterbox, load_rgb, nms, to_detector_input
-from pillguard.onnx_utils import onnx_size_mb, ort_session, quantize_static_int8, run, simplify_onnx
+from pillguard.onnx_utils import (
+    QuantizationError,
+    onnx_size_mb,
+    ort_session,
+    quantize_static_int8,
+    run,
+    simplify_onnx,
+)
+
+MIN_INT8_BOX_RATIO = 0.80     # int8 detections / fp32 detections, both directions
+MIN_INT8_IOU = 0.75           # mean IoU of each fp32 box against its closest int8 box
 
 
 def export_fp32(weights: Path, out_path: Path, imgsz: int = DET_INPUT, opset: int = 17) -> Path:
@@ -93,8 +107,25 @@ def compare_models(fp32: Path, int8: Path, image_paths: list[Path], n: int = 50)
             "mean_best_iou": iou_sum / max(1, total32)}
 
 
+def check_detector_quantisation(agreement: dict) -> None:
+    """Raise unless the INT8 detections still match fp32.
+
+    The numbers were always in ``detector_export.json``; nothing read them, so an export that
+    produced zero boxes was shipped to the browser and only surfaced as an all-zero report.
+    """
+    ratio = agreement["int8_boxes"] / max(1, agreement["fp32_boxes"])
+    problems = []
+    if not MIN_INT8_BOX_RATIO <= ratio <= 1 / MIN_INT8_BOX_RATIO:
+        problems.append(f"{agreement['int8_boxes']} int8 boxes vs {agreement['fp32_boxes']} fp32 "
+                        f"(ratio {ratio:.2f}, want {MIN_INT8_BOX_RATIO}..{1 / MIN_INT8_BOX_RATIO:.2f})")
+    if agreement["mean_best_iou"] < MIN_INT8_IOU:
+        problems.append(f"mean best IoU {agreement['mean_best_iou']:.3f} < {MIN_INT8_IOU}")
+    if problems:
+        raise QuantizationError("INT8 detector disagrees with fp32: " + "; ".join(problems))
+
+
 def export_detector(weights: Path, out_dir: Path, calib_images: list[Path], imgsz: int = DET_INPUT,
-                    n_calib: int = 64, method: str = "minmax") -> dict:
+                    n_calib: int = 64, method: str = "minmax", strict: bool = True) -> dict:
     out_dir = Path(out_dir)
     fp32 = export_fp32(weights, out_dir / "detector.fp32.onnx", imgsz)
     int8 = out_dir / "detector.int8.onnx"
@@ -105,6 +136,12 @@ def export_detector(weights: Path, out_dir: Path, calib_images: list[Path], imgs
               "agreement": compare_models(fp32, int8, calib_images)}
     (out_dir / "detector_export.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
+    try:
+        check_detector_quantisation(report["agreement"])
+    except QuantizationError as e:
+        if strict:
+            raise
+        print(f"  WARNING: {e}")
     return report
 
 
@@ -115,9 +152,10 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, default=ARTIFACTS_DIR / "export")
     ap.add_argument("--n-calib", type=int, default=64)
     ap.add_argument("--method", default="minmax", choices=["minmax", "entropy", "percentile"])
+    ap.add_argument("--allow-degraded", action="store_true", help="warn instead of failing on INT8 drift")
     a = ap.parse_args(argv)
     paths = [Path(l.strip()) for l in a.calib_list.read_text(encoding="utf-8").splitlines() if l.strip()]
-    export_detector(a.weights, a.out, paths, n_calib=a.n_calib, method=a.method)
+    export_detector(a.weights, a.out, paths, n_calib=a.n_calib, method=a.method, strict=not a.allow_degraded)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,11 @@
 Quantisation is *static* QDQ (uint8 activations, per-channel int8 weights) calibrated on a
 few dozen real inputs. This is the format ONNX Runtime Web executes with integer kernels in
 WebAssembly; dynamic quantisation would leave the convolutions in fp32.
+
+Both models exclude a few nodes from quantisation and are therefore mixed precision, because
+one uint8 scale per tensor destroys them otherwise; see ``nodes_to_exclude`` at each call
+site. Callers are expected to compare the result against fp32 and raise
+:class:`QuantizationError` when it degrades.
 """
 
 from __future__ import annotations
@@ -17,6 +22,10 @@ import numpy as np
 
 if TYPE_CHECKING:  # pragma: no cover
     import torch
+
+
+class QuantizationError(RuntimeError):
+    """An INT8 model disagrees with its fp32 source beyond the accepted margin."""
 
 
 def onnx_size_mb(path: Path) -> float:

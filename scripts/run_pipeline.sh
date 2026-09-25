@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # End-to-end training + export + evaluation after `pillguard ingest`. Re-runnable; each stage
 # writes under artifacts/. Usage: bash scripts/run_pipeline.sh [det_epochs] [emb_epochs]
-# (Git Bash on Windows works; PowerShell users: scripts/run_pipeline.ps1). About 80-90 minutes on an RTX 3060 (measured: detector 2.3 min/epoch, embedding 1.4 min/epoch).
+# (Git Bash on Windows works; PowerShell users: scripts/run_pipeline.ps1). About 35 minutes on an
+# RTX 3060 once the crop cache exists (measured over 30 + 20 epochs: detector 0.85 min/epoch,
+# embedding 1.09 min/epoch, the two sharing the card); the first run also writes 2 x 32828 crops.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONIOENCODING=utf-8

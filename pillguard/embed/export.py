@@ -1,4 +1,4 @@
-"""Export the embedding network to ONNX (fp32 + static INT8) and check what quantisation costs.
+"""Export the embedding network to ONNX (fp32 + mixed-precision INT8) and check the cost.
 
 Usage::
 
@@ -8,6 +8,10 @@ Usage::
 Writes ``embed.fp32.onnx`` / ``embed.int8.onnx`` (input ``(N, 3, 128, 128)`` normalised
 float, output ``(N, 128)`` unit vectors) and ``embed_export.json`` with the val
 nearest-prototype accuracy of both models and their mean cosine agreement.
+
+The INT8 model keeps the first :data:`N_FP32_CONVS` backbone convolutions in fp32 (see
+:func:`early_conv_nodes`) and the export fails rather than shipping embeddings that no
+longer point where fp32 points (see :func:`check_embedding_quantisation`).
 """
 
 from __future__ import annotations
@@ -20,13 +24,22 @@ import numpy as np
 import torch
 
 from pillguard.config import ARTIFACTS_DIR, CROP_SIZE
-
-N_FP32_CONVS = 16             # backbone convolutions left unquantised (see early_conv_nodes)
 from pillguard.embed.crops import eval_crop_array, filter_rows, load_crop_index
 from pillguard.embed.model import load_embedding_net
 from pillguard.embed.train import class_means, nearest_prototype_accuracy
 from pillguard.imaging import to_embed_input
-from pillguard.onnx_utils import export_torch, onnx_size_mb, ort_session, quantize_static_int8, run
+from pillguard.onnx_utils import (
+    QuantizationError,
+    export_torch,
+    onnx_size_mb,
+    ort_session,
+    quantize_static_int8,
+    run,
+)
+
+N_FP32_CONVS = 16             # backbone convolutions left unquantised (see early_conv_nodes)
+MIN_INT8_COSINE = 0.95        # mean cosine between int8 and fp32 embeddings of the same crop
+MAX_INT8_ACC_DROP = 0.05      # nearest-prototype accuracy quantisation may cost
 
 
 def embed_with_onnx(session, crops_u8: np.ndarray, batch: int = 64) -> np.ndarray:
@@ -51,9 +64,28 @@ def early_conv_nodes(fp32_path: Path, n: int = N_FP32_CONVS) -> list[str]:
     return convs[:n]
 
 
+def check_embedding_quantisation(report: dict) -> None:
+    """Raise unless the INT8 embeddings still agree with fp32.
+
+    A quantisation that dropped nearest-prototype accuracy from 0.878 to 0.179 was reported
+    faithfully in ``embed_export.json`` and shipped anyway, taking the prototypes, the
+    calibration and every threshold fitted on top of them with it.
+    """
+    cos, acc8 = report.get("int8_vs_fp32_cosine_mean"), report.get("int8_val_proto_acc")
+    acc32 = report.get("fp32_val_proto_acc")
+    problems = []
+    if cos is not None and cos < MIN_INT8_COSINE:
+        problems.append(f"mean cosine against fp32 {cos:.3f} < {MIN_INT8_COSINE}")
+    if acc8 is not None and acc32 is not None and acc32 - acc8 > MAX_INT8_ACC_DROP:
+        problems.append(f"val nearest-prototype accuracy {acc32:.3f} -> {acc8:.3f} "
+                        f"(drop {acc32 - acc8:.3f} > {MAX_INT8_ACC_DROP})")
+    if problems:
+        raise QuantizationError("INT8 embedding disagrees with fp32: " + "; ".join(problems))
+
+
 def export_embedding(ckpt: Path, root: Path, split_path: Path, out_dir: Path, n_calib: int = 256,
                      n_check: int = 4000, method: str = "percentile", seed: int = 0,
-                     n_fp32_convs: int = N_FP32_CONVS) -> dict:
+                     n_fp32_convs: int = N_FP32_CONVS, strict: bool = True) -> dict:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     model = load_embedding_net(ckpt)
@@ -97,6 +129,12 @@ def export_embedding(ckpt: Path, root: Path, split_path: Path, out_dir: Path, n_
         report["torch_vs_fp32_max_abs"] = float(np.abs(t_e - run(s, to_embed_input(va_u8[:64]))).max())
     (out_dir / "embed_export.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
+    try:
+        check_embedding_quantisation(report)
+    except QuantizationError as e:
+        if strict:
+            raise
+        print(f"  WARNING: {e}")
     return report
 
 
@@ -112,9 +150,10 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--n-calib", type=int, default=256)
     ap.add_argument("--method", default="percentile", choices=["minmax", "entropy", "percentile"])
     ap.add_argument("--n-fp32-convs", type=int, default=N_FP32_CONVS)
+    ap.add_argument("--allow-degraded", action="store_true", help="warn instead of failing on INT8 drift")
     a = ap.parse_args(argv)
     export_embedding(a.ckpt, a.root, a.split, a.out, n_calib=a.n_calib, method=a.method,
-                     n_fp32_convs=a.n_fp32_convs)
+                     n_fp32_convs=a.n_fp32_convs, strict=not a.allow_degraded)
 
 
 if __name__ == "__main__":
