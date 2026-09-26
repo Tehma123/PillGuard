@@ -102,6 +102,30 @@ def test_threshold_choice_respects_caps():
     assert 0 <= rc["aurc"] <= 1
 
 
+def test_threshold_choice_minimises_risk_not_recall():
+    cal = _cal_set()
+    fitted = fit_temperature_and_bias(cal)
+    p = p_in_from(cal.sims, cal.masks, fitted.temperature, fitted.unknown_bias)
+    params, info = choose_thresholds(p, cal.y_in, fitted, max_fpr=0.10, max_abstain=0.30, min_out_recall=0.0)
+    chosen, alt = info["val_metrics"], info["max_out_recall_alternative"]["val_metrics"]
+    # maximising out recall is what the search used to do, and it costs risk
+    assert chosen["risk"] <= alt["risk"] + 1e-12
+    assert alt["out_recall"] >= chosen["out_recall"] - 1e-12
+    assert info["objective"].startswith("lowest risk")
+
+
+def test_threshold_choice_honours_the_recall_floor():
+    cal = _cal_set()
+    fitted = fit_temperature_and_bias(cal)
+    p = p_in_from(cal.sims, cal.masks, fitted.temperature, fitted.unknown_bias)
+    _, info = choose_thresholds(p, cal.y_in, fitted, max_fpr=0.10, max_abstain=0.30, min_out_recall=0.80)
+    assert info["min_out_recall_used"] == 0.80
+    assert info["val_metrics"]["out_recall"] >= 0.80 - 1e-9
+    # an unreachable floor is dropped rather than collapsing to the no-reject point
+    _, hard = choose_thresholds(p, cal.y_in, fitted, max_fpr=0.10, max_abstain=0.30, min_out_recall=1.01)
+    assert hard["min_out_recall_used"] == 0.0 and hard["relaxed"]
+
+
 def test_metrics_summary():
     recs = [
         dict(scenario="a", kind="remove-1", file="a", label=1, gt="in", reason="listed", seen=True, detected=True, verdict="in", p_in=0.9, best_any=1),

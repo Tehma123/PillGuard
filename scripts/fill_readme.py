@@ -161,7 +161,8 @@ def main() -> None:
         raise SystemExit("run `pillguard eval --mode detector` first")
 
     h, nr = det["headline"], det.get("no_reject_baseline", {})
-    lines = ["| metric (test split, pill level) | PillGuard (with reject) | same model, no reject | SPEC target |",
+    img = det.get("image_level", {})
+    lines = ["| metric (test split) | PillGuard (with reject) | same model, no reject | SPEC target |",
              "|---|---|---|---|",
              f"| out-of-prescription recall | **{pct(h['out_recall'])}** | {pct(nr.get('out_recall'))} | ≥ 95 % |",
              f"| false alarm rate (listed pill flagged) | **{pct(h['false_alarm_rate'])}** | {pct(nr.get('false_alarm_rate'))} | ≤ 10 % |",
@@ -170,6 +171,9 @@ def main() -> None:
              f"| out recall, strict (misses and abstains count as missed) | {pct(h['out_recall_strict'])} | {pct(nr.get('out_recall_strict'))} | – |",
              f"| detection recall (pill found at IoU ≥ 0.5) | {pct(h['detection_recall'])} | same | – |",
              f"| ECE of p(in prescription) | {det.get('ece', float('nan')):.3f} | – | lower than uncalibrated |"]
+    if img:
+        lines += [f"| **per photo:** clean prescription flagged anyway | **{pct(img['alert_false_rate'])}** | – | not in SPEC |",
+                  f"| per photo: prescription with a wrong pill flagged | {pct(img['alert_recall'])} | – | not in SPEC |"]
     if fit:
         c = fit["calibration"]
         lines.append(f"| ECE on validation, before → after calibration | {c['before']['ece']:.3f} → {c['after']['ece']:.3f} | – | – |")

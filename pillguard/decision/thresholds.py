@@ -8,10 +8,13 @@ Definitions (per pill; "decided" = verdict is in or out, not uncertain)
 * false alarm rate = (gt in & verdict out)  / (gt in & decided)
 * risk             = wrong verdicts / decided ; coverage = decided / all
 
-Threshold search: grid over (theta_out <= theta_in); feasible if false-alarm <= ``max_fpr``
-and abstain <= ``max_abstain``; pick the feasible pair with the best out recall, ties
-broken by lower abstention. If nothing is feasible the abstain cap is relaxed step by step
-and the report says so.
+Threshold search: grid over (theta_out <= theta_in); feasible if false-alarm <= ``max_fpr``,
+abstain <= ``max_abstain`` and out recall >= ``min_out_recall``; among those pick the lowest
+risk, ties broken by higher out recall then lower abstention. Out recall is a floor the spec
+sets, not the thing to maximise: maximising it spends the whole abstention budget buying
+recall the floor already guarantees and leaves risk at the no-reject level, which defeats the
+point of having a reject option. If nothing is feasible the abstain cap is relaxed step by
+step, then the recall floor is dropped, and the report says which happened.
 """
 
 from __future__ import annotations
@@ -52,30 +55,46 @@ def selective_metrics(p_in: np.ndarray, y_in: np.ndarray, params: DecisionParams
     }
 
 
+def feasible_thresholds(p_in: np.ndarray, y_in: np.ndarray, base: DecisionParams, max_fpr: float,
+                        max_abstain: float, min_out_recall: float, grid: int,
+                        margin: np.ndarray | None) -> list[tuple[DecisionParams, dict]]:
+    out = []
+    for lo in np.linspace(0.0, 1.0, grid):
+        for hi in np.linspace(0.0, 1.0, grid):
+            if hi < lo:
+                continue
+            params = replace(base, theta_in=float(hi), theta_out=float(lo))
+            m = selective_metrics(p_in, y_in, params, margin)
+            if (m["false_alarm_rate"] <= max_fpr and m["abstain_rate"] <= max_abstain
+                    and m["out_recall"] >= min_out_recall):
+                out.append((params, m))
+    return out
+
+
 def choose_thresholds(p_in: np.ndarray, y_in: np.ndarray, base: DecisionParams, max_fpr: float = 0.10,
-                      max_abstain: float = 0.20, grid: int = 41, margin: np.ndarray | None = None) -> tuple[DecisionParams, dict]:
-    ths = np.linspace(0.0, 1.0, grid)
-    best, best_key, relax_steps = None, None, 0
-    cap = max_abstain
-    while best is None and cap <= 1.0 + 1e-9:
-        for lo in ths:
-            for hi in ths:
-                if hi < lo:
-                    continue
-                params = replace(base, theta_in=float(hi), theta_out=float(lo))
-                m = selective_metrics(p_in, y_in, params, margin)
-                if m["false_alarm_rate"] <= max_fpr and m["abstain_rate"] <= cap:
-                    key = (m["out_recall"], -m["abstain_rate"], -m["false_alarm_rate"])
-                    if best_key is None or key > best_key:
-                        best, best_key = (params, m), key
-        if best is None:
+                      max_abstain: float = 0.20, grid: int = 41, margin: np.ndarray | None = None,
+                      min_out_recall: float = 0.95) -> tuple[DecisionParams, dict]:
+    cap, relax_steps, floor, feasible = max_abstain, 0, min_out_recall, []
+    while not feasible and cap <= 1.0 + 1e-9:
+        feasible = feasible_thresholds(p_in, y_in, base, max_fpr, cap, floor, grid, margin)
+        if not feasible:
             cap += 0.05
             relax_steps += 1
-    if best is None:  # degenerate data: no reject
-        best = (replace(base, theta_in=0.5, theta_out=0.5), selective_metrics(p_in, y_in, replace(base, theta_in=0.5, theta_out=0.5), margin))
-    params, metrics = best
+    if not feasible and floor > 0.0:          # the recall floor, not the budget, was the blocker
+        cap, floor = max_abstain, 0.0
+        feasible = feasible_thresholds(p_in, y_in, base, max_fpr, cap, floor, grid, margin)
+    if not feasible:                          # degenerate data: no reject
+        params = replace(base, theta_in=0.5, theta_out=0.5)
+        feasible = [(params, selective_metrics(p_in, y_in, params, margin))]
+    lowest_risk = min(feasible, key=lambda c: (c[1]["risk"], -c[1]["out_recall"], c[1]["abstain_rate"]))
+    most_recall = max(feasible, key=lambda c: (c[1]["out_recall"], -c[1]["abstain_rate"], -c[1]["false_alarm_rate"]))
+    params, metrics = lowest_risk
     info = {"max_fpr": max_fpr, "max_abstain_requested": max_abstain, "max_abstain_used": cap,
-            "relaxed": relax_steps > 0, "val_metrics": metrics}
+            "min_out_recall_requested": min_out_recall, "min_out_recall_used": floor,
+            "relaxed": relax_steps > 0 or floor != min_out_recall, "n_feasible": len(feasible),
+            "objective": "lowest risk among feasible thresholds",
+            "val_metrics": metrics,
+            "max_out_recall_alternative": {"params": most_recall[0].to_dict(), "val_metrics": most_recall[1]}}
     return params, info
 
 

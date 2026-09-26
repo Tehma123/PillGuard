@@ -49,7 +49,8 @@ from pillguard.onnx_utils import ort_session
 
 
 def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out_dir: Path,
-                 max_fpr: float = 0.10, max_abstain: float = 0.20, k: int = PROTOTYPES_PER_CLASS,
+                 max_fpr: float = 0.10, max_abstain: float = 0.20, min_out_recall: float = 0.95,
+                 k: int = PROTOTYPES_PER_CLASS,
                  arcface_scale: float = 30.0, seed: int = 0, batch: int = 64) -> dict:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -104,7 +105,8 @@ def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out
     cal_rep = calibration_report(cal, before, fitted)
     p_in = p_in_from(cal.sims, cal.masks, fitted.temperature, fitted.unknown_bias,
                      fitted.platt_a, fitted.platt_b)
-    params, th_info = choose_thresholds(p_in, cal.y_in, fitted, max_fpr=max_fpr, max_abstain=max_abstain)
+    params, th_info = choose_thresholds(p_in, cal.y_in, fitted, max_fpr=max_fpr, max_abstain=max_abstain,
+                                        min_out_recall=min_out_recall)
     no_reject = selective_metrics(p_in, cal.y_in, DecisionParams(fitted.temperature, fitted.unknown_bias, 0.5, 0.5))
     report = {
         "n_val_pills": len(y), "n_classes": matcher.n_classes, "prototypes_per_class": k,
@@ -133,8 +135,10 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", type=Path, default=ARTIFACTS_DIR / "decision")
     ap.add_argument("--max-fpr", type=float, default=0.10)
     ap.add_argument("--max-abstain", type=float, default=0.20)
+    ap.add_argument("--min-out-recall", type=float, default=0.95)
     a = ap.parse_args(argv)
-    fit_decision(a.root, a.split, a.embed_onnx, a.ckpt, a.out, max_fpr=a.max_fpr, max_abstain=a.max_abstain)
+    fit_decision(a.root, a.split, a.embed_onnx, a.ckpt, a.out, max_fpr=a.max_fpr, max_abstain=a.max_abstain,
+                 min_out_recall=a.min_out_recall)
 
 
 if __name__ == "__main__":

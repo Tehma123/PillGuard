@@ -21,29 +21,31 @@ from the prescription (the Specifications §3.5 scenario), pills VAIPE itself la
 drugs held out of training entirely ("unseen").
 
 <!-- RESULTS:START -->
-| metric (test split, pill level) | PillGuard (with reject) | same model, no reject | SPEC target |
+| metric (test split) | PillGuard (with reject) | same model, no reject | SPEC target |
 |---|---|---|---|
-| out-of-prescription recall | **99.4 %** | 94.6 % | ≥ 95 % |
-| false alarm rate (listed pill flagged) | **9.3 %** | 4.4 % | ≤ 10 % |
-| abstain rate | **10.8 %** | 0 % | ≤ 20 % |
-| error rate on decided pills (risk) | **5.0 %** | 4.9 % | lower with reject |
-| out recall, strict (misses and abstains count as missed) | 96.9 % | 94.6 % | – |
+| out-of-prescription recall | **98.8 %** | 94.6 % | ≥ 95 % |
+| false alarm rate (listed pill flagged) | **1.1 %** | 4.4 % | ≤ 10 % |
+| abstain rate | **18.9 %** | 0 % | ≤ 20 % |
+| error rate on decided pills (risk) | **1.1 %** | 4.9 % | lower with reject |
+| out recall, strict (misses and abstains count as missed) | 78.4 % | 94.6 % | – |
 | detection recall (pill found at IoU ≥ 0.5) | 99.6 % | same | – |
 | ECE of p(in prescription) | 0.008 | – | lower than uncalibrated |
+| **per photo:** clean prescription flagged anyway | **41.2 %** | – | not in SPEC |
+| per photo: prescription with a wrong pill flagged | 99.5 % | – | not in SPEC |
 | ECE on validation, before → after calibration | 0.082 → 0.007 | – | – |
 | detector mAP@0.5 / mAP@0.5:0.95 (test) | 0.992 / 0.759 | – | set after baseline |
 | model download (INT8 ONNX) | 4.9 MB (detector 3.3 + embedding 1.7) | – | ≤ 30 MB |
-| Python ONNX latency, 1 thread (detect + embed) | median 87 ms, p90 98 ms | – | ≤ 1 s in browser |
+| Python ONNX latency, 1 thread (detect + embed) | median 95 ms, p90 108 ms | – | ≤ 1 s in browser |
 | Python vs browser (Node/WASM) verdict agreement | 100 % on 40 cases | – | 100 % |
 
 | subset | pills | out recall | false alarm | abstain |
 |---|---|---|---|---|
-| seen drugs | 8851 | 99.8 % | 8.4 % | 12.2 % |
-| unseen drugs (12 held out) | 1850 | 98.8 % | 100.0 % | 4.2 % |
-| out pills: deleted from the prescription | 3056 | 99.8 % | – | 0.8 % |
-| out pills: labelled foreign by VAIPE | 1475 | 98.5 % | – | 5.1 % |
+| seen drugs | 8851 | 99.6 % | 0.7 % | 14.4 % |
+| unseen drugs (12 held out) | 1850 | 97.0 % | 100.0 % | 40.3 % |
+| out pills: deleted from the prescription | 3056 | 99.6 % | – | 9.8 % |
+| out pills: labelled foreign by VAIPE | 1475 | 96.0 % | – | 43.6 % |
 
-With ground-truth boxes (recognition + decision only): out recall 99.3 %, false alarms 9.9 %, abstain 10.8 %, ECE 0.007.
+With ground-truth boxes (recognition + decision only): out recall 98.6 %, false alarms 1.1 %, abstain 19.1 %, ECE 0.007.
 
 Full tables, calibration and quantisation detail, risk-coverage and reliability plots: [docs/benchmark.md](docs/benchmark.md). Confusion pairs with example crops are VAIPE photographs and stay out of the repository; `pillguard eval` writes them under `artifacts/eval/`.
 <!-- RESULTS:END -->

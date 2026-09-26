@@ -9,25 +9,25 @@ layer from detection. *No reject* is the same model forced to answer for every p
 
 | metric | detector boxes | ground-truth boxes | no reject |
 |---|---|---|---|
-| out-of-prescription recall (decided) | **99.4 %** | 99.3 % | 94.6 % |
-| out recall, strict (abstain counts as a miss) | 96.9 % | 97.4 % | 94.6 % |
-| false alarm rate (decided) | **9.3 %** | 9.9 % | 4.4 % |
-| abstain rate | **10.8 %** | 10.8 % | 0 % |
-| risk (error rate on decided pills) | 5.0 % | 5.4 % | 4.9 % |
+| out-of-prescription recall (decided) | **98.8 %** | 98.6 % | 94.6 % |
+| out recall, strict (abstain counts as a miss) | 78.4 % | 78.2 % | 94.6 % |
+| false alarm rate (decided) | **1.1 %** | 1.1 % | 4.4 % |
+| abstain rate | **18.9 %** | 19.1 % | 0 % |
+| risk (error rate on decided pills) | 1.1 % | 1.2 % | 4.9 % |
 | detection recall (IoU >= 0.5) | 99.6 % | 100.0 % | – |
-| ECE of p(in prescription) | 0.0080 | 0.0069 | – |
+| ECE of p(in prescription) | 0.0079 | 0.0069 | – |
 | risk-coverage AURC | 0.0070 | – | – |
 
-Image level over 3089 scenarios: alert recall 99.6 %, false alert rate 50.8 % (tp 2017, fp 540, fn 8, tn 524).
+Image level over 3089 scenarios: alert recall 99.5 %, false alert rate 41.2 % (tp 2015, fp 438, fn 10, tn 626).
 
-Spurious detections, boxes matching no labelled pill: 98 (69 judged out, 18 uncertain, 11 in).
+Spurious detections, boxes matching no labelled pill: 98 (44 judged out, 40 uncertain, 14 in).
 
 ## Seen vs unseen drugs (detector boxes)
 
 | subset | pills | out recall | false alarm | abstain |
 |---|---|---|---|---|
-| seen drugs | 8851 | 99.8 % | 8.4 % | 12.2 % |
-| unseen drugs (12 held out) | 1850 | 98.8 % | 100.0 % | 4.2 % |
+| seen drugs | 8851 | 99.6 % | 0.7 % | 14.4 % |
+| unseen drugs (12 held out) | 1850 | 97.0 % | 100.0 % | 40.3 % |
 
 Unseen drugs have no prototypes by construction, so a pill of one that *is* on the prescription
 can never be matched and is always flagged. Their 100 % false alarm rate is by design, and it is
@@ -37,10 +37,10 @@ what the held-out classes exist to measure.
 
 | subset | pills | out recall | false alarm | abstain |
 |---|---|---|---|---|
-| foreign | 1475 | 98.5 % | 0.0 % | 5.1 % |
-| listed | 5896 | 0.0 % | 9.3 % | 18.0 % |
-| removed | 3056 | 99.8 % | 0.0 % | 0.8 % |
-| unseen | 274 | 100.0 % | 0.0 % | 0.0 % |
+| foreign | 1475 | 96.0 % | 0.0 % | 43.6 % |
+| listed | 5896 | 0.0 % | 1.1 % | 17.7 % |
+| removed | 3056 | 99.6 % | 0.0 % | 9.8 % |
+| unseen | 274 | 100.0 % | 0.0 % | 12.0 % |
 
 `listed` pills are the ones that *are* on the prescription, so out recall is undefined for them
 and reads 0 %; their meaningful column is the false alarm rate.
@@ -49,20 +49,20 @@ and reads 0 %; their meaningful column is the false alarm rate.
 
 | subset | pills | out recall | false alarm | abstain |
 |---|---|---|---|---|
-| clean | 5034 | 98.6 % | 9.2 % | 13.2 % |
-| remove-1 | 3559 | 99.7 % | 10.2 % | 9.6 % |
-| remove-2 | 2108 | 99.9 % | 7.8 % | 7.2 % |
+| clean | 5034 | 96.5 % | 0.7 % | 25.2 % |
+| remove-1 | 3559 | 99.5 % | 2.0 % | 14.5 % |
+| remove-2 | 2108 | 99.7 % | 0.9 % | 11.0 % |
 
 ## Calibration
 
 | parameter | value |
 |---|---|
 | softmax temperature | 0.0863 |
-| unknown-class bias | -0.7851 |
-| Platt a / b on p_in | 0.8493 / 2.8613 |
-| theta_in / theta_out | 0.975 / 0.750 |
+| unknown-class bias | -0.7755 |
+| Platt a / b on p_in | 0.8489 / 2.8610 |
+| theta_in / theta_out | 0.950 / 0.075 |
 | validation NLL, before to after | 0.5072 -> 0.1314 |
-| validation ECE, before to after | 0.0818 -> 0.0073 |
+| validation ECE, before to after | 0.0818 -> 0.0071 |
 
 Before is the network's own training softmax: T = 1/scale with no unknown class. A temperature
 alone leaves p_in underconfident across the middle of its range, because it can sharpen the
@@ -83,7 +83,7 @@ raises rather than shipping a model that drifts past these margins.
 
 Detector mAP@0.5 0.992, mAP@0.5:0.95 0.759 on the test split.
 
-Python ONNX latency per image, 1 thread, detect + embed: median 87 ms, p90 98 ms.
+Python ONNX latency per image, 1 thread, detect + embed: median 95 ms, p90 108 ms.
 
 ## Python versus browser parity
 
