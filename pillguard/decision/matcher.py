@@ -28,6 +28,8 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
+from pillguard.config import DecisionParams
+
 
 def platt(p: np.ndarray, a: float, b: float, eps: float = 1e-6) -> np.ndarray:
     """Affine recalibration in logit space: ``sigmoid(a * logit(p) + b)``; ``(1, 0)`` is a no-op.
@@ -39,8 +41,6 @@ def platt(p: np.ndarray, a: float, b: float, eps: float = 1e-6) -> np.ndarray:
         return p
     q = np.clip(p, eps, 1 - eps)
     return 1.0 / (1.0 + np.exp(-(a * np.log(q / (1 - q)) + b)))
-
-from pillguard.config import DecisionParams
 
 
 @dataclass

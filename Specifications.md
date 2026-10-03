@@ -743,17 +743,18 @@ legitimately correspond to several pill classes.
 |---|---|---|---|
 | 0 | Download the data; test OCR and ONNX Runtime Web | input path A/B/C decided | **done** (§10.5) |
 | 1 | EDA, fixed split, out-of-prescription scenarios | `docs/eda.md`, `splits/vaipe_v1.json`, scenario files | **done** |
-| 2 | Train the detector | mAP@0.5, ONNX + INT8 | code complete, run pending |
-| 3 | Train the embedding network, match against prescriptions | accuracy, confusion pairs | code complete, run pending |
-| 4 | Reject thresholds, calibration, full-pipeline evaluation | risk–coverage curve, ECE | code complete, run pending |
-| 5 | INT8 export, web page, parity check | GitHub Pages demo | code complete, models pending |
-| 6 | README, error analysis, cleanup, tests | finished repository with real numbers | tests and CI in place |
+| 2 | Train the detector | mAP@0.5, ONNX + INT8 | **done**: test mAP@0.5 0.992, mAP@0.5:0.95 0.759 |
+| 3 | Train the embedding network, match against prescriptions | accuracy, confusion pairs | **done** |
+| 4 | Reject thresholds, calibration, full-pipeline evaluation | risk–coverage curve, ECE | **done**: recall, false-alarm, abstain, risk and ECE targets met (§7.3) |
+| 5 | INT8 export, web page, parity check | GitHub Pages demo | **done**: 4.9 MB of models, 100 % verdict parity |
+| 6 | README, error analysis, cleanup, tests | finished repository with real numbers | **done** |
 | 7–8 (optional) | DDPM for rare drugs | ablation table + copy check | not started (§10.4) |
 
-Everything through week 6 is implemented and unit-tested on synthetic data. What is missing is the
-training run itself: `artifacts/detector/`, `artifacts/embed/`, `artifacts/export/` and `web/models/`
-are still empty, and the README results block still shows its placeholder. One execution of
-`scripts/run_pipeline.sh` fills all of them.
+Weeks 0–6 are done. The pipeline was trained on an RTX 3060 and evaluated on the fixed test split;
+the results are in the README and in full in [docs/benchmark.md](docs/benchmark.md). One §7.3 target
+is not yet measured as specified: latency. The 95 ms median is Python ONNX Runtime on one thread of a
+desktop CPU (Intel i5-12400F); no laptop-browser or phone timing has been recorded. The optional DDPM
+module (§13) has not been started.
 
 ---
 
