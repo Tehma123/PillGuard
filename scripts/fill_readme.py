@@ -33,13 +33,33 @@ def pct(x, digits=1):
     return "–" if x is None else f"{100 * x:.{digits}f} %"
 
 
-def subset_table(source: dict, keys: list[tuple[str, str]]) -> list[str]:
-    rows = ["| subset | pills | out recall | false alarm | abstain |", "|---|---|---|---|---|"]
+def subset_table(source: dict, keys: list[tuple[str, str]], first: str = "subset") -> list[str]:
+    """Rates that have no denominator in a subset (out recall of listed pills, say) print as '–'."""
+    rows = [f"| {first} | pill checks | out recall | false alarm | abstain | out pill accepted |", "|---|---|---|---|---|---|"]
     for key, label in keys:
         d = source.get(key)
-        if d:
-            rows.append(f"| {label} | {d['n']} | {pct(d['out_recall'])} | {pct(d['false_alarm_rate'])} "
-                        f"| {pct(d['abstain_rate'])} |")
+        if d and d.get("n"):
+            has_out, has_in = d["n_out"] > 0, d["n_in"] > 0
+            rows.append(f"| {label} | {d['n']} | {pct(d['out_recall'] if has_out else None)} "
+                        f"| {pct(d['false_alarm_rate'] if has_in else None)} | {pct(d['abstain_rate'])} "
+                        f"| {pct(d['out_accepted_rate'] if has_out else None)} |")
+    return rows
+
+
+def unseen_label(det: dict) -> str:
+    g = det.get("unseen_groups", {})
+    held, untrained = g.get("held_out", {}), g.get("untrained", {})
+    if not held:
+        return "drugs never trained on"
+    return (f"drugs never trained on ({len(held['present'])} of the {len(held['classes'])} held out, "
+            f"{len(untrained.get('present', []))} with no train photo)")
+
+
+def photo_table(img: dict) -> list[str]:
+    rows = ["| photo holds | scenarios | OK | not sure, no OUT | at least one OUT |", "|---|---|---|---|---|"]
+    for key, label in (("clean", "only prescribed pills"), ("wrong", "at least one pill not on the list")):
+        n, t = img[f"n_{key}"], img[key]
+        rows.append(f"| {label} | {n} | " + " | ".join(f"{t[s]} ({pct(t[s] / max(1, n))})" for s in ("ok", "uncertain", "out")) + " |")
     return rows
 
 
@@ -50,11 +70,15 @@ def benchmark_doc(det: dict, orc: dict | None, dmap: dict | None, dexp: dict | N
     img = det.get("image_level", {})
     sv = det.get("spurious_verdicts", {})
     nan = float("nan")
+    br = det.get("by_reason", {})
+    nm = det.get("naming", {})
     L = ["# PillGuard benchmark",
          "",
-         f"Test split, pill level: {h['n']} pills ({h['n_in']} in prescription, {h['n_out']} out) over "
-         f"{img.get('n_scenarios', '?')} prescription scenarios. Regenerate with `pillguard eval --mode "
-         "detector`, `pillguard eval --mode oracle` and `python scripts/fill_readme.py`.",
+         f"Test split: {det.get('n_pills_unique', '?')} pills in {det.get('n_photos', '?')} photos, each photo checked "
+         f"against its prescription as written and with one or two drugs deleted, {img.get('n_scenarios', '?')} "
+         f"scenarios in all. Pill-level rates count {h['n']} pill checks ({h['n_in']} on the list, {h['n_out']} "
+         "not), one per pill per scenario. Regenerate with `pillguard eval --mode detector`, "
+         "`pillguard eval --mode oracle` and `python scripts/fill_readme.py`.",
          "",
          "## End to end",
          "",
@@ -74,27 +98,74 @@ def benchmark_doc(det: dict, orc: dict | None, dmap: dict | None, dexp: dict | N
          f"| detection recall (IoU >= 0.5) | {pct(h['detection_recall'])} | {pct(o.get('detection_recall'))} | – |",
          f"| ECE of p(in prescription) | {det.get('ece', nan):.4f} | {(orc or {}).get('ece', nan):.4f} | – |",
          f"| risk-coverage AURC | {det.get('risk_coverage', {}).get('aurc', nan):.4f} | – | – |"]
+    L += ["",
+          f"Spurious detections, boxes matching no labelled pill: {det.get('n_spurious_detections')} "
+          f"({sv.get('out', 0)} judged out, {sv.get('uncertain', 0)} uncertain, {sv.get('in', 0)} in)."]
     if img:
+        c = img["clean"]
+        L += ["", "## Per photo", "",
+              "What the user sees for one photo checked against one prescription. The photo reads **OUT** if any",
+              "pill is flagged out, **not sure** if some pill is uncertain and none is out, and **OK** otherwise.",
+              "Spurious boxes count, because the page shows them; missed pills cannot show.", ""]
+        L += photo_table(img)
         L += ["",
-              f"Image level over {img['n_scenarios']} scenarios: alert recall {pct(img['alert_recall'])}, false "
-              f"alert rate {pct(img['alert_false_rate'])} (tp {img['tp']}, fp {img['fp']}, fn {img['fn']}, "
-              f"tn {img['tn']}).",
+              f"An alert means at least one OUT. On a photo of only prescribed pills that is a false alert, and it "
+              f"happens {pct(img['false_alert_rate'])} of the time. The price of the reject option shows here "
+              f"instead: {pct(img['check_rate_clean'])} of such photos ask the user to check at least one pill, "
+              f"because a photo holds {h['n'] / max(1, img['n_scenarios']):.1f} pills on average and each can "
+              f"abstain. A photo with a wrong pill goes through with nothing flagged {pct(img['silent_miss_rate'])} "
+              "of the time.",
               "",
-              f"Spurious detections, boxes matching no labelled pill: {det.get('n_spurious_detections')} "
-              f"({sv.get('out', 0)} judged out, {sv.get('uncertain', 0)} uncertain, {sv.get('in', 0)} in)."]
+              f"An earlier version of this page counted *not sure* as an alert too and called the sum (now "
+              f"{pct((c['out'] + c['uncertain']) / max(1, img['n_clean']))}) the false alert rate."]
+    f, r, u = br.get("foreign", {}), br.get("removed", {}), br.get("unseen", {})
+    if f and r:
+        L += ["", "## Known weaknesses", "",
+              f"* **A pill the model has never seen is often left *not sure*.** Foreign pills (VAIPE "
+              f"label 107: a pill from another prescription, drug unknown) are left uncertain "
+              f"{pct(f['abstain_rate'])} of the time and drugs never trained on {pct(u.get('abstain_rate'))}, "
+              f"against {pct(r['abstain_rate'])} for pills deleted from the prescription. That is the safe "
+              "direction, since the user is told to check, but it is not a confident alert.",
+              f"* **Some wrong pills are accepted.** {pct(f['out_accepted_rate'])} of detected foreign pills and "
+              f"{pct(r['out_accepted_rate'])} of deleted ones are judged to be on the prescription. This is the "
+              "costly error: nothing tells the user to look.",
+              f"* **Correct photos often get a *not sure*:** {pct(img.get('check_rate_clean'))} of them, see above.",
+              "* **Naming a drug is weaker than checking a prescription,** see below."]
+    if nm.get("n_pills"):
+        mv = nm["removed_misnamed_verdicts"]
+        L += ["", "## Naming a drug versus checking a prescription", "",
+              f"The nearest prototype is the pill's own drug for {pct(nm['accuracy'])} of {nm['n_pills']} detected "
+              f"test pills of trained drugs. On validation crops it is {(eexp or {}).get('int8_val_proto_acc', nan):.3f} "
+              f"for the INT8 model and {(eexp or {}).get('fp32_val_proto_acc', nan):.3f} in fp32 (INT8 table below). "
+              "Out-of-prescription recall is higher because the check never needs the name: it only asks whether "
+              "the pill looks like one of the listed drugs.",
+              "",
+              f"Of {nm['removed']} checks of a deleted pill, {nm['removed_misnamed']} gave it the wrong name. "
+              f"{mv['out']} of those were still flagged OUT, {mv['uncertain']} were *not sure* and {mv['in']} were "
+              "accepted. A wrong name lets a pill through only when it lands on a drug that is on the list."]
     L += ["", "## Seen vs unseen drugs (detector boxes)", ""]
-    L += subset_table(det, [("seen", "seen drugs"), ("unseen", "unseen drugs (12 held out)")])
+    L += subset_table(det, [("seen", "drugs the model was trained on"), ("unseen", unseen_label(det))])
+    g = det.get("unseen_groups", {})
+    held, untrained = g.get("held_out", {}), g.get("untrained", {})
     L += ["",
-          "Unseen drugs have no prototypes by construction, so a pill of one that *is* on the prescription",
-          "can never be matched and is always flagged. Their 100 % false alarm rate is by design, and it is",
-          "what the held-out classes exist to measure.",
-          "", "## By reason", ""]
-    L += subset_table(det.get("by_reason", {}), [(k, k) for k in sorted(det.get("by_reason", {}))])
+          "Unseen drugs are never on a prescription: the scenarios take them off the list, as the demo's drug",
+          "picker only offers drugs that have prototypes. Every unseen pill is therefore out and the false alarm",
+          "column does not apply."]
+    if held:
+        L += ["",
+              f"They are the {len(held['classes'])} drugs held out of training on purpose, of which "
+              f"{len(held['present'])} occur in test photos ({held['pills']} checks), and "
+              f"{len(untrained.get('classes', []))} rare drugs that the split by prescription left out of every "
+              f"train photo, of which ids {', '.join(map(str, untrained.get('present', [])))} occur in test "
+              f"({untrained.get('pills', 0)} checks). Foreign pills are in neither row, since label 107 says a pill "
+              "belongs to another prescription, not which drug it is."]
+    L += ["", "## By reason", ""]
+    L += subset_table(br, [(k, k) for k in sorted(br)], first="reason")
     L += ["",
-          "`listed` pills are the ones that *are* on the prescription, so out recall is undefined for them",
-          "and reads 0 %; their meaningful column is the false alarm rate.",
+          "`listed` pills are on the prescription, so only their false alarm rate applies. *Out pill accepted* is",
+          "the share of detected out pills judged to be on the prescription.",
           "", "## By scenario kind", ""]
-    L += subset_table(det.get("by_kind", {}), [(k, k) for k in sorted(det.get("by_kind", {}))])
+    L += subset_table(det.get("by_kind", {}), [(k, k) for k in sorted(det.get("by_kind", {}))], first="kind")
     if fit:
         c, prm = fit["calibration"], fit.get("params", {})
         L += ["", "## Calibration", "",
@@ -172,8 +243,10 @@ def main() -> None:
              f"| detection recall (pill found at IoU ≥ 0.5) | {pct(h['detection_recall'])} | same | – |",
              f"| ECE of p(in prescription) | {det.get('ece', float('nan')):.3f} | – | lower than uncalibrated |"]
     if img:
-        lines += [f"| **per photo:** clean prescription flagged anyway | **{pct(img['alert_false_rate'])}** | – | not in SPEC |",
-                  f"| per photo: prescription with a wrong pill flagged | {pct(img['alert_recall'])} | – | not in SPEC |"]
+        lines += [f"| **per photo:** only prescribed pills, yet a pill flagged OUT (false alert) | **{pct(img['false_alert_rate'])}** | – | not in SPEC |",
+                  f"| per photo: only prescribed pills, a pill *not sure* and none OUT | {pct(img['check_rate_clean'])} | – | not in SPEC |",
+                  f"| per photo: a wrong pill present, at least one pill flagged OUT | {pct(img['alert_recall'])} | – | not in SPEC |",
+                  f"| per photo: a wrong pill present, nothing flagged at all | {pct(img['silent_miss_rate'])} | – | not in SPEC |"]
     if fit:
         c = fit["calibration"]
         lines.append(f"| ECE on validation, before → after calibration | {c['before']['ece']:.3f} → {c['after']['ece']:.3f} | – | – |")
@@ -188,14 +261,9 @@ def main() -> None:
     if par:
         lines.append(f"| Python vs browser (Node/WASM) verdict agreement | {pct(par['verdict_agreement'], 0)} on {par['cases']} cases | – | 100 % |")
     lines.append("")
-    seen, unseen = det["seen"], det["unseen"]
-    lines += ["| subset | pills | out recall | false alarm | abstain |", "|---|---|---|---|---|",
-              f"| seen drugs | {seen['n']} | {pct(seen['out_recall'])} | {pct(seen['false_alarm_rate'])} | {pct(seen['abstain_rate'])} |",
-              f"| unseen drugs (12 held out) | {unseen['n']} | {pct(unseen['out_recall'])} | {pct(unseen['false_alarm_rate'])} | {pct(unseen['abstain_rate'])} |"]
-    for k, label in (("removed", "deleted from the prescription"), ("foreign", "labelled foreign by VAIPE")):
-        m = det["by_reason"].get(k)
-        if m:
-            lines.append(f"| out pills: {label} | {m['n']} | {pct(m['out_recall'])} | – | {pct(m['abstain_rate'])} |")
+    lines += subset_table(det["by_reason"], [("listed", "on the prescription"), ("removed", "deleted from the prescription"),
+                                             ("unseen", unseen_label(det)),
+                                             ("foreign", "labelled foreign by VAIPE (drug unknown)")], first="pills")
     if orc:
         o = orc["headline"]
         lines += ["", f"With ground-truth boxes (recognition + decision only): out recall {pct(o['out_recall'])}, "

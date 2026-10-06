@@ -13,6 +13,11 @@ bank. Their pills still exist in val/test photos, where they must be flagged as 
 the prescription" (they never appear on the prescription list handed to the matcher). The
 detector is class-agnostic and is trained on every box, including those.
 
+Splitting by prescription can also leave a rare drug with no train photo at all. The embedding
+network never sees it either and it gets no prototype, so ``all_unseen_classes`` adds those
+drugs to the held-out ones wherever scenarios are built: listing a drug the matcher cannot
+recognise would count its pills as false alarms that no model could avoid.
+
 The split file is small (file names only) and is committed under ``splits/``.
 """
 
@@ -72,6 +77,18 @@ class Split:
     @classmethod
     def load(cls, path: Path) -> Split:
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    def untrained_classes(self, images: list[PillImage]) -> list[int]:
+        """Drugs that occur in val/test photos but in no train photo, and were not held out on purpose."""
+        by = {im.file: im for im in images}
+        labels = {name: {l for f in getattr(self, name) if f in by for l in by[f].labels}
+                  for name in ("train", "val", "test")}
+        rest = (labels["val"] | labels["test"]) - labels["train"] - set(self.unseen_classes)
+        return sorted(int(c) for c in rest - {OUT_OF_PRESCRIPTION_LABEL})
+
+    def all_unseen_classes(self, images: list[PillImage]) -> set[int]:
+        """Every drug the model has no prototype for: held out on purpose, or absent from train photos."""
+        return set(self.unseen_classes) | set(self.untrained_classes(images))
 
     def summary(self, images: list[PillImage] | None = None) -> dict:
         s = {"n_train": len(self.train), "n_val": len(self.val), "n_test": len(self.test),

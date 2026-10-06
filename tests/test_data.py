@@ -4,6 +4,7 @@ from pillguard.config import OUT_OF_PRESCRIPTION_LABEL
 from pillguard.data.scenarios import load_scenarios, make_scenarios, save_scenarios, summarize
 from pillguard.data.splits import Split, choose_unseen_classes, make_split
 from pillguard.data.vaipe import (
+    PillImage,
     build_classes,
     class_names_from_prescriptions,
     clean_drug_name,
@@ -45,6 +46,18 @@ def test_split_is_grouped_and_deterministic(synth_root, tmp_path):
     a.save(p)
     assert Split.load(p).to_dict() == a.to_dict()
     assert make_split(ims, seed=8, n_unseen=1).to_dict() != a.to_dict()
+
+
+def test_drugs_absent_from_train_count_as_unseen():
+    def im(f, labels):
+        return PillImage(file=f, width=10, height=10, boxes=[[0, 0, 1, 1]] * len(labels), labels=labels)
+
+    ims = [im("t", [0, 1, OUT_OF_PRESCRIPTION_LABEL]), im("v", [1, 2]), im("x", [3, 4, OUT_OF_PRESCRIPTION_LABEL])]
+    split = Split(train=["t"], val=["v"], test=["x"], unseen_classes=[4])
+    assert split.untrained_classes(ims) == [2, 3]
+    assert split.all_unseen_classes(ims) == {2, 3, 4}
+    sc = make_scenarios([ims[2]], {}, split.all_unseen_classes(ims), seed=1)
+    assert sc[0].listed == [] and {p.reason for p in sc[0].pills} == {"unseen", "foreign"}
 
 
 def test_unseen_choice_prefers_mid_frequency(synth_root):

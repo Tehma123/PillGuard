@@ -17,35 +17,39 @@ decision run in the browser with ONNX Runtime Web.
 
 Test split: 1,449 photos / 5,034 pills from 200 prescriptions never seen in training
 (`splits/vaipe_v1.json`). Out-of-prescription pills come from three sources: drugs deleted
-from the prescription (the Specifications §3.5 scenario), pills VAIPE itself labels as foreign, and 12
-drugs held out of training entirely ("unseen").
+from the prescription (the Specifications §3.5 scenario), pills VAIPE itself labels as foreign, and
+drugs the model never trained on ("unseen": 12 held out on purpose, plus a few rare ones that no
+training photo contains). Each photo is checked against its prescription as written and with one or
+two drugs deleted, so pill-level rates count a pill once per check.
 
 <!-- RESULTS:START -->
 | metric (test split) | PillGuard (with reject) | same model, no reject | SPEC target |
 |---|---|---|---|
-| out-of-prescription recall | **98.8 %** | 94.6 % | ≥ 95 % |
-| false alarm rate (listed pill flagged) | **1.1 %** | 4.4 % | ≤ 10 % |
-| abstain rate | **18.9 %** | 0 % | ≤ 20 % |
-| error rate on decided pills (risk) | **1.1 %** | 4.9 % | lower with reject |
-| out recall, strict (misses and abstains count as missed) | 78.4 % | 94.6 % | – |
+| out-of-prescription recall | **98.8 %** | 95.4 % | ≥ 95 % |
+| false alarm rate (listed pill flagged) | **1.1 %** | 4.5 % | ≤ 10 % |
+| abstain rate | **17.2 %** | 0 % | ≤ 20 % |
+| error rate on decided pills (risk) | **1.1 %** | 4.5 % | lower with reject |
+| out recall, strict (misses and abstains count as missed) | 80.7 % | 95.4 % | – |
 | detection recall (pill found at IoU ≥ 0.5) | 99.6 % | same | – |
-| ECE of p(in prescription) | 0.008 | – | lower than uncalibrated |
-| **per photo:** clean prescription flagged anyway | **41.2 %** | – | not in SPEC |
-| per photo: prescription with a wrong pill flagged | 99.5 % | – | not in SPEC |
-| ECE on validation, before → after calibration | 0.082 → 0.007 | – | – |
+| ECE of p(in prescription) | 0.009 | – | lower than uncalibrated |
+| **per photo:** only prescribed pills, yet a pill flagged OUT (false alert) | **2.0 %** | – | not in SPEC |
+| per photo: only prescribed pills, a pill *not sure* and none OUT | 37.6 % | – | not in SPEC |
+| per photo: a wrong pill present, at least one pill flagged OUT | 92.5 % | – | not in SPEC |
+| per photo: a wrong pill present, nothing flagged at all | 0.3 % | – | not in SPEC |
+| ECE on validation, before → after calibration | 0.071 → 0.004 | – | – |
 | detector mAP@0.5 / mAP@0.5:0.95 (test) | 0.992 / 0.759 | – | set after baseline |
 | model download (INT8 ONNX) | 4.9 MB (detector 3.3 + embedding 1.7) | – | ≤ 30 MB |
-| Python ONNX latency, 1 thread (detect + embed) | median 95 ms, p90 108 ms | – | ≤ 1 s in browser |
+| Python ONNX latency, 1 thread (detect + embed) | median 85 ms, p90 93 ms | – | ≤ 1 s in browser |
 | Python vs browser (Node/WASM) verdict agreement | 100 % on 40 cases | – | 100 % |
 
-| subset | pills | out recall | false alarm | abstain |
-|---|---|---|---|---|
-| seen drugs | 8851 | 99.6 % | 0.7 % | 14.4 % |
-| unseen drugs (12 held out) | 1850 | 97.0 % | 100.0 % | 40.3 % |
-| out pills: deleted from the prescription | 3056 | 99.6 % | – | 9.8 % |
-| out pills: labelled foreign by VAIPE | 1475 | 96.0 % | – | 43.6 % |
+| pills | pill checks | out recall | false alarm | abstain | out pill accepted |
+|---|---|---|---|---|---|
+| on the prescription | 5787 | – | 1.1 % | 16.6 % | – |
+| deleted from the prescription | 3012 | 99.6 % | – | 7.4 % | 0.4 % |
+| drugs never trained on (7 of the 12 held out, 4 with no train photo) | 349 | 100.0 % | – | 21.8 % | 0.0 % |
+| labelled foreign by VAIPE (drug unknown) | 1475 | 96.1 % | – | 38.7 % | 2.4 % |
 
-With ground-truth boxes (recognition + decision only): out recall 98.6 %, false alarms 1.1 %, abstain 19.1 %, ECE 0.007.
+With ground-truth boxes (recognition + decision only): out recall 98.6 %, false alarms 1.1 %, abstain 17.4 %, ECE 0.011.
 
 Full tables, calibration and quantisation detail, risk-coverage and reliability plots: [docs/benchmark.md](docs/benchmark.md). Confusion pairs with example crops are VAIPE photographs and stay out of the repository; `pillguard eval` writes them under `artifacts/eval/`.
 <!-- RESULTS:END -->

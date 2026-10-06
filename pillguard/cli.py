@@ -70,9 +70,10 @@ def cmd_scenarios(argv):
     images = load_pill_images(a.root)
     by = {im.file: im for im in images}
     pd = prescription_drug_table(a.root)
+    unseen = split.all_unseen_classes(images)
     for subset in ("val", "test"):
         ims = [by[f] for f in split.subset(subset) if f in by]
-        sc = make_scenarios(ims, pd, split.unseen_classes, seed=split.seed)
+        sc = make_scenarios(ims, pd, unseen, seed=split.seed)
         save_scenarios(a.root / f"scenarios_{subset}.jsonl", sc)
         print(subset, json.dumps(summarize(sc)))
 

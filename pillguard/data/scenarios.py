@@ -12,7 +12,9 @@ Per pill the ground truth is ``in`` or ``out`` with a ``reason``:
 * ``listed``   – drug is on the (modified) list                       -> in
 * ``removed``  – drug was deleted from the list by the scenario       -> out
 * ``foreign``  – labelled 107 by VAIPE (pill from another prescription) -> out
-* ``unseen``   – drug held out of training (novelty test)              -> out
+* ``unseen``   – drug the model was never trained on (novelty test)    -> out
+                 Held out on purpose, or absent from every train photo: pass
+                 ``Split.all_unseen_classes`` so both kinds stay off the list.
 * ``unlisted`` – annotation says a seen drug that the prescription does not mention -> out
                  (rare label noise; reported separately and excluded from headline numbers)
 

@@ -62,8 +62,8 @@ a false alarm, and both are worse than an honest "uncertain".
 | **pill photo** | one dataset photo showing 1–11 loose pills, with one box per pill |
 | **prescription** | a scanned printed prescription; the annotation maps OCR lines to drug class ids |
 | **listed drug** | a drug id handed to the matcher for a given photo (the prescription contents) |
-| **seen / unseen drug** | seen = used to train the embedding network and build prototypes; unseen = deliberately held out (§3.4) |
-| **foreign pill** | a pill VAIPE labels `107`, i.e. a pill that belongs to another prescription |
+| **seen / unseen drug** | seen = used to train the embedding network and build prototypes; unseen = no prototype, because the drug is deliberately held out or appears in no train photo (§3.4) |
+| **foreign pill** | a pill VAIPE labels `107`, i.e. a pill that belongs to another prescription; neither seen nor unseen, since the label does not say which drug it is |
 | **scenario** | one photo paired with one (possibly modified) drug list, plus per-pill ground truth (§3.5) |
 | **prototype** | a unit vector representing a drug in embedding space (§5.3) |
 | **parity** | agreement between the Python pipeline and the browser pipeline on identical pixels (§7.5) |
@@ -186,6 +186,10 @@ single source of truth for every reported number.
   novelty test is neither trivially rare nor dominant. Their pills still appear in val/test photos,
   where they must be flagged `out`. **The detector is class-agnostic and still trains on their
   boxes** — novelty is a recognition problem, not a detection one.
+* **Drugs with no train photo.** Grouping by prescription leaves 7 rare drugs out of train altogether:
+  13, 25 and 44 occur only in val, 32, 49, 53 and 102 only in test. They get no prototype either, so
+  `Split.all_unseen_classes` treats them as unseen wherever scenarios are built. Listing them would
+  turn each of their pills into a false alarm no model could avoid, in calibration as in evaluation.
 
 | subset | photos | pills | prescriptions |
 |---|---|---|---|
@@ -217,7 +221,7 @@ Per-pill ground truth carries a `reason`, which is what the evaluation slices on
 | `listed` | `in` | the pill's drug is on the modified list |
 | `removed` | `out` | the scenario deleted that drug from the list |
 | `foreign` | `out` | VAIPE label 107: a pill from another prescription |
-| `unseen` | `out` | a held-out drug the model was never trained on |
+| `unseen` | `out` | a drug the model was never trained on: held out, or in no train photo (§3.4) |
 | `unlisted` | `out` | the annotation says a seen drug the prescription never mentions — rare label noise, reported separately and **excluded from headline numbers** |
 
 Generation is deterministic per `(seed, photo)` via `sha1`, so scenarios are stable regardless of
@@ -508,11 +512,12 @@ for box, d in zip(result.boxes, result.decisions):
    quality from detection quality.
 4. Compare against the **no-reject baseline**: the identical model and probabilities with
    `θ_in = θ_out = 0.5`, i.e. forced to answer. This is what isolates the value of abstention.
-5. Report **seen** and **unseen** drugs separately, and break results down by scenario kind and by
-   reason (`listed`, `removed`, `foreign`, `unseen`).
-6. Error analysis: the most frequent confusion pairs with example crops, plus risk–coverage and
+5. Report **seen** and **unseen** drugs separately (foreign pills belong to neither), and break
+   results down by scenario kind and by reason (`listed`, `removed`, `foreign`, `unseen`).
+6. Report the **per-photo** view of §7.2: what the user sees for a whole photo.
+7. Error analysis: the most frequent confusion pairs with example crops, plus risk–coverage and
    reliability plots.
-7. Do **not** compare directly against PGPNet numbers: different class count, different split (§10.1).
+8. Do **not** compare directly against PGPNet numbers: different class count, different split (§10.1).
 
 ### 7.2 Metric definitions
 
@@ -527,12 +532,25 @@ Per pill, where "decided" means the verdict is `in` or `out`:
 | out recall, strict | `(gt out ∧ verdict out)` ÷ `gt out` — abstentions and missed detections count as failures |
 | false-alarm rate | `(gt in ∧ verdict out)` ÷ `(gt in ∧ decided)` |
 | out precision | `(gt out ∧ verdict out)` ÷ `verdict out` |
+| out pill accepted | `(gt out ∧ verdict in)` ÷ `(gt out ∧ detected)` — the costly error, nothing prompts a second look |
 | risk | wrong decided verdicts ÷ decided |
 | risk–coverage curve, AURC | confidence = `max(p_in, 1 − p_in)`; sweep it and plot risk against coverage |
 | ECE | 15-bin expected calibration error of `p_in` against "the pill's drug is listed" |
 
 Headline numbers use pills whose reason is `listed`, `removed`, `foreign` or `unseen`; `unlisted`
-pills (label noise) are excluded from the headline and reported separately.
+pills (label noise) are excluded from the headline and reported separately. A pill counts once per
+scenario its photo appears in, so pill-level rates are over pill checks, not distinct pills.
+
+Per photo, one scenario reads **OUT** if any pill or spurious box is judged `out`, **not sure** if any
+is `uncertain` and none is `out`, and **OK** otherwise; missed pills do not show. A *clean* scenario
+holds only listed pills, a *wrong* one at least one `out` pill. Only OUT is an alert.
+
+| metric | definition |
+|---|---|
+| false alert rate | clean scenarios reading OUT ÷ clean scenarios |
+| check rate | clean scenarios reading *not sure* ÷ clean scenarios |
+| alert recall | wrong scenarios reading OUT ÷ wrong scenarios |
+| silent miss rate | wrong scenarios reading OK ÷ wrong scenarios |
 
 ### 7.3 Targets
 

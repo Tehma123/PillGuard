@@ -2,7 +2,7 @@
 
 A record is one ground-truth pill inside one scenario::
 
-    {"scenario": id, "kind": clean|remove-1|remove-2, "file": ..., "label": 12, "gt": "in"|"out",
+    {"scenario": id, "kind": clean|remove-1|remove-2, "file": ..., "pill_index": 0, "label": 12, "gt": "in"|"out",
      "reason": listed|removed|foreign|unseen|unlisted, "seen": bool,
      "detected": bool, "verdict": in|out|uncertain|missed, "p_in": 0.93, "best_any": 12, ...}
 """
@@ -36,6 +36,7 @@ def _rates(recs: list[dict]) -> dict:
         "coverage": float(decided.sum() / max(1, det.sum())),
         "out_recall": float((out_v & gt_out).sum() / max(1, (decided & gt_out).sum())),
         "out_recall_strict": float((out_v & gt_out).sum() / max(1, gt_out.sum())),   # misses + abstains count
+        "out_accepted_rate": float(((v == "in") & gt_out).sum() / max(1, (det & gt_out).sum())),  # the costly error
         "false_alarm_rate": float((out_v & ~gt_out).sum() / max(1, (decided & ~gt_out).sum())),
         "false_alarm_rate_strict": float((out_v & ~gt_out).sum() / max(1, (~gt_out).sum())),
         "out_precision": float((out_v & gt_out).sum() / max(1, out_v.sum())),
@@ -46,7 +47,11 @@ def _rates(recs: list[dict]) -> dict:
 
 
 def summarize_records(records: list[dict], headline_reasons=("listed", "removed", "foreign", "unseen")) -> dict:
-    """Headline numbers exclude ``unlisted`` pills (annotation noise); breakdowns include all."""
+    """Headline numbers exclude ``unlisted`` pills (annotation noise); breakdowns include all.
+
+    ``seen`` / ``unseen`` leave ``foreign`` pills out: label 107 says the pill belongs to another
+    prescription, not which drug it is, so it cannot be called seen or unseen.
+    """
     head = [r for r in records if r["reason"] in headline_reasons]
     out = {"headline": _rates(head), "all": _rates(records)}
     by_reason = defaultdict(list)
@@ -56,8 +61,10 @@ def summarize_records(records: list[dict], headline_reasons=("listed", "removed"
         by_kind[r["kind"]].append(r)
     out["by_reason"] = {k: _rates(v) for k, v in sorted(by_reason.items())}
     out["by_kind"] = {k: _rates(v) for k, v in sorted(by_kind.items())}
-    out["seen"] = _rates([r for r in head if r.get("seen", True)])
-    out["unseen"] = _rates([r for r in head if not r.get("seen", True)])
+    known = [r for r in head if r["reason"] != "foreign"]
+    out["seen"] = _rates([r for r in known if r.get("seen", True)])
+    out["unseen"] = _rates([r for r in known if not r.get("seen", True)])
+    out["naming"] = naming(records)
     dec = [r for r in head if r.get("detected", True) and r.get("p_in") is not None]
     if dec:
         p = np.array([r["p_in"] for r in dec], float)
@@ -88,15 +95,50 @@ def confusion_pairs(records: list[dict], names: dict[int, str] | None = None, to
     return rows
 
 
-def image_level(records: list[dict]) -> dict:
-    """Per scenario: did the system raise at least one alert when it should (and only then)?"""
-    by = defaultdict(list)
+def naming(records: list[dict]) -> dict:
+    """How often the nearest prototype is the pill's own drug, and what a wrong name costs.
+
+    Accuracy counts each detected pill of a trained drug once (a photo recurs across its
+    scenarios, its embedding does not change). A wrong name only matters when it lands on a
+    listed drug, so for ``removed`` pills that were misnamed the verdicts are reported too.
+    """
+    known = [r for r in records if r["reason"] in ("listed", "removed") and r.get("seen", True)
+             and r.get("detected", True) and r.get("best_any") is not None]
+    pills = {(r["file"], r.get("pill_index")): r["best_any"] == r["label"] for r in known}
+    removed = [r for r in known if r["reason"] == "removed"]
+    misnamed = [r for r in removed if r["best_any"] != r["label"]]
+    v = Counter(r["verdict"] for r in misnamed)
+    return {"n_pills": len(pills), "accuracy": sum(pills.values()) / max(1, len(pills)),
+            "removed": len(removed), "removed_misnamed": len(misnamed),
+            "removed_misnamed_verdicts": {k: v[k] for k in ("out", "uncertain", "in")}}
+
+
+PHOTO_STATES = ("ok", "uncertain", "out")
+
+
+def image_level(records: list[dict], spurious: list[dict] | None = None) -> dict:
+    """What the user sees per scenario, i.e. one photo checked against one prescription.
+
+    A scenario reads ``out`` if any pill is judged out, else ``uncertain`` if any pill is, else
+    ``ok``. Spurious detections count because the page shows them; missed pills cannot show.
+    ``clean`` scenarios hold only listed pills, ``wrong`` ones at least one pill that is not.
+    An alert means at least one ``out``; ``uncertain`` asks the user to check, it does not alert.
+    """
+    verdicts: dict[str, list[str]] = defaultdict(list)
+    wrong: dict[str, bool] = {}
     for r in records:
-        by[r["scenario"]].append(r)
-    tp = fp = fn = tn = 0
-    for recs in by.values():
-        should = any(r["gt"] == "out" for r in recs)
-        did = any(r["verdict"] in ("out", "uncertain") for r in recs)
-        tp += should and did; fp += (not should) and did; fn += should and (not did); tn += (not should) and (not did)
-    return {"n_scenarios": len(by), "alert_recall": tp / max(1, tp + fn), "alert_false_rate": fp / max(1, fp + tn),
-            "tp": tp, "fp": fp, "fn": fn, "tn": tn}
+        verdicts[r["scenario"]].append(r["verdict"])
+        wrong[r["scenario"]] = wrong.get(r["scenario"], False) or r["gt"] == "out"
+    for s in spurious or []:
+        if s["scenario"] in wrong:
+            verdicts[s["scenario"]].append(s["verdict"])
+    table = {"clean": Counter(), "wrong": Counter()}
+    for sid, vs in verdicts.items():
+        state = "out" if "out" in vs else "uncertain" if "uncertain" in vs else "ok"
+        table["wrong" if wrong[sid] else "clean"][state] += 1
+    c, w = table["clean"], table["wrong"]
+    nc, nw = sum(c.values()), sum(w.values())
+    return {"n_scenarios": nc + nw, "n_clean": nc, "n_wrong": nw,
+            "clean": {k: c[k] for k in PHOTO_STATES}, "wrong": {k: w[k] for k in PHOTO_STATES},
+            "alert_recall": w["out"] / max(1, nw), "false_alert_rate": c["out"] / max(1, nc),
+            "check_rate_clean": c["uncertain"] / max(1, nc), "silent_miss_rate": w["ok"] / max(1, nw)}

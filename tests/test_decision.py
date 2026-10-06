@@ -12,7 +12,7 @@ from pillguard.decision.calibration import (
 )
 from pillguard.decision.matcher import Matcher, verdicts_from_p
 from pillguard.decision.thresholds import choose_thresholds, risk_coverage_curve, selective_metrics
-from pillguard.eval.metrics import confusion_pairs, image_level, summarize_records
+from pillguard.eval.metrics import confusion_pairs, image_level, naming, summarize_records
 
 
 def _protos(seed=0, n=4, d=16):
@@ -143,9 +143,43 @@ def test_metrics_summary():
     assert h["out_recall_strict"] == pytest.approx(2 / 4)
     assert h["abstain_rate"] == pytest.approx(1 / 5)
     assert h["false_alarm_rate"] == 0.0
-    assert s["unseen"]["n"] == 2 and s["by_reason"]["foreign"]["out_recall"] == 0.0
+    assert s["unseen"]["n"] == 1 and s["seen"]["n"] == 4      # the foreign pill is neither
+    assert s["by_reason"]["foreign"]["out_recall"] == 0.0 and s["by_reason"]["foreign"]["out_accepted_rate"] == 1.0
     assert "ece" in s and "risk_coverage" in s and s["no_reject_baseline"]["n"] == 5
     il = image_level(recs)
-    assert il["alert_recall"] == pytest.approx(2 / 3) and il["tp"] == 2 and il["fn"] == 1
+    assert il["alert_recall"] == pytest.approx(2 / 3) and il["wrong"] == {"ok": 1, "uncertain": 0, "out": 2}
     cp = confusion_pairs(recs, {1: "one", 3: "three"})
     assert cp and cp[0]["true"] == 3 and cp[0]["predicted"] == 1
+
+
+def test_image_level_reads_the_worst_verdict_per_photo():
+    def rec(scenario, gt, verdict):
+        return dict(scenario=scenario, gt=gt, verdict=verdict)
+
+    recs = [rec("ok", "in", "in"), rec("ok", "in", "missed"),
+            rec("unsure", "in", "in"), rec("unsure", "in", "uncertain"),
+            rec("alarm", "in", "uncertain"), rec("alarm", "in", "out"),
+            rec("ghost", "in", "in"),
+            rec("caught", "out", "out"), rec("caught", "in", "uncertain"),
+            rec("slipped", "out", "in")]
+    # a spurious box judged out alarms the user like any other; one from an unknown scenario is ignored
+    il = image_level(recs, spurious=[{"scenario": "ghost", "verdict": "out"}, {"scenario": "elsewhere", "verdict": "out"}])
+    assert il["n_scenarios"] == 6 and il["n_clean"] == 4 and il["n_wrong"] == 2
+    assert il["clean"] == {"ok": 1, "uncertain": 1, "out": 2} and il["wrong"] == {"ok": 1, "uncertain": 0, "out": 1}
+    assert il["false_alert_rate"] == pytest.approx(2 / 4) and il["check_rate_clean"] == pytest.approx(1 / 4)
+    assert il["alert_recall"] == pytest.approx(1 / 2) and il["silent_miss_rate"] == pytest.approx(1 / 2)
+
+
+def test_naming_counts_each_pill_once():
+    base = dict(kind="clean", seen=True, detected=True)
+    recs = [
+        dict(base, scenario="a#clean", file="a", pill_index=0, label=1, reason="listed", best_any=1, verdict="in"),
+        dict(base, scenario="a#remove-1", file="a", pill_index=0, label=1, reason="removed", best_any=1, verdict="out"),
+        dict(base, scenario="a#clean", file="a", pill_index=1, label=2, reason="listed", best_any=3, verdict="uncertain"),
+        dict(base, scenario="a#remove-1", file="a", pill_index=1, label=2, reason="removed", best_any=3, verdict="out"),
+        dict(base, scenario="a#clean", file="a", pill_index=2, label=107, reason="foreign", best_any=3, verdict="out", seen=False),
+    ]
+    nm = naming(recs)
+    assert nm["n_pills"] == 2 and nm["accuracy"] == pytest.approx(0.5)
+    assert nm["removed"] == 2 and nm["removed_misnamed"] == 1
+    assert nm["removed_misnamed_verdicts"] == {"out": 1, "uncertain": 0, "in": 0}

@@ -35,7 +35,8 @@ def export_cases(root: Path, split_path: Path, out_dir: Path, n: int = 30, n_ora
     test = [by[f] for f in split.test if f in by]
     rng = np.random.default_rng(seed)
     pick = [test[i] for i in sorted(rng.choice(len(test), size=min(n, len(test)), replace=False))]
-    scen = {s.file: s for s in make_scenarios(pick, prescription_drug_table(root), split.unseen_classes, seed=split.seed)
+    unseen = split.all_unseen_classes(images)
+    scen = {s.file: s for s in make_scenarios(pick, prescription_drug_table(root), unseen, seed=split.seed)
             if s.kind == "remove-1"}
     cases = []
     for k, im in enumerate(pick):

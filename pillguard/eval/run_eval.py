@@ -25,7 +25,7 @@ from pillguard.config import ARTIFACTS_DIR
 from pillguard.data.scenarios import Scenario, make_scenarios, summarize
 from pillguard.data.splits import Split
 from pillguard.data.vaipe import PillImage, load_classes, load_pill_images, prescription_drug_table
-from pillguard.eval.metrics import confusion_pairs, image_level, summarize_records
+from pillguard.eval.metrics import PHOTO_STATES, confusion_pairs, image_level, summarize_records
 from pillguard.imaging import box_iou_matrix, load_rgb
 from pillguard.pipeline import PillGuardPipeline
 
@@ -94,12 +94,22 @@ def evaluate(pipe: PillGuardPipeline, images: list[PillImage], scenarios: list[S
     return records, spurious, timings
 
 
+def unseen_groups(records: list[dict], held_out, untrained) -> dict:
+    """Which drugs the ``unseen`` pills belong to: held out on purpose, or absent from train photos."""
+    out = {}
+    for name, ids in (("held_out", set(held_out)), ("untrained", set(untrained))):
+        recs = [r for r in records if r["reason"] == "unseen" and r["label"] in ids]
+        out[name] = {"classes": sorted(ids), "present": sorted({r["label"] for r in recs}), "pills": len(recs)}
+    return out
+
+
 def write_report(out_dir: Path, metrics: dict, conf: list[dict], img_lvl: dict, timings: list[float], mode: str,
                  names: dict[int, str], n_spurious: int) -> Path:
     h = metrics["headline"]
     nr = metrics.get("no_reject_baseline", {})
     lines = [f"# PillGuard evaluation ({mode} boxes)", "",
-             f"Pills: {h['n']} (in: {h['n_in']}, out: {h['n_out']}); spurious detections: {n_spurious}", "",
+             f"Pill checks: {h['n']} (in: {h['n_in']}, out: {h['n_out']}), i.e. {metrics.get('n_pills_unique', '?')} pills "
+             f"in {metrics.get('n_photos', '?')} photos, each counted once per scenario; spurious detections: {n_spurious}", "",
              "| metric | with reject | no-reject baseline |", "|---|---|---|"]
     for key, label in (("out_recall", "out-of-prescription recall (decided)"), ("out_recall_strict", "out recall, strict (misses + abstains count)"),
                        ("false_alarm_rate", "false alarm rate (decided)"), ("abstain_rate", "abstain rate"),
@@ -110,19 +120,32 @@ def write_report(out_dir: Path, metrics: dict, conf: list[dict], img_lvl: dict, 
         lines.append(f"| {label} | {fa} | {fb} |")
     lines += ["", f"ECE (p_in vs truth): {metrics.get('ece', float('nan')):.4f}",
               f"Risk-coverage AURC: {metrics.get('risk_coverage', {}).get('aurc', float('nan')):.4f}", "",
-              "## Seen vs unseen drugs", "", "| subset | n | out recall | false alarm | abstain |", "|---|---|---|---|---|"]
+              "## Seen vs unseen drugs (foreign pills are neither)", "",
+              "| subset | n | out recall | false alarm | abstain |", "|---|---|---|---|---|"]
     for k in ("seen", "unseen"):
         m = metrics[k]
         if m.get("n"):
             lines.append(f"| {k} | {m['n']} | {m['out_recall']:.3f} | {m['false_alarm_rate']:.3f} | {m['abstain_rate']:.3f} |")
-    lines += ["", "## By reason", "", "| reason | n | out recall | false alarm | abstain | detection recall |", "|---|---|---|---|---|---|"]
+    lines += ["", "## By reason", "",
+              "| reason | n | out recall | false alarm | abstain | out pill accepted | detection recall |",
+              "|---|---|---|---|---|---|---|"]
     for k, m in metrics["by_reason"].items():
-        lines.append(f"| {k} | {m['n']} | {m['out_recall']:.3f} | {m['false_alarm_rate']:.3f} | {m['abstain_rate']:.3f} | {m['detection_recall']:.3f} |")
+        lines.append(f"| {k} | {m['n']} | {m['out_recall']:.3f} | {m['false_alarm_rate']:.3f} | {m['abstain_rate']:.3f} "
+                     f"| {m['out_accepted_rate']:.3f} | {m['detection_recall']:.3f} |")
     lines += ["", "## By scenario kind", "", "| kind | n | out recall | false alarm | abstain |", "|---|---|---|---|---|"]
     for k, m in metrics["by_kind"].items():
         lines.append(f"| {k} | {m['n']} | {m['out_recall']:.3f} | {m['false_alarm_rate']:.3f} | {m['abstain_rate']:.3f} |")
-    lines += ["", f"## Image level: alert recall {img_lvl['alert_recall']:.3f}, false alert rate {img_lvl['alert_false_rate']:.3f} over {img_lvl['n_scenarios']} scenarios", "",
-              "## Most confused drug pairs (true -> predicted)", "", "| true | predicted | count | share of true |", "|---|---|---|---|"]
+    lines += ["", f"## Per photo over {img_lvl['n_scenarios']} scenarios (worst verdict per photo, spurious boxes included)", "",
+              "| photo holds | n | all ok | uncertain, no out | at least one out |", "|---|---|---|---|---|"]
+    for k, label in (("clean", "only listed pills"), ("wrong", "a pill not on the list")):
+        n, t = img_lvl[f"n_{k}"], img_lvl[k]
+        lines.append(f"| {label} | {n} | " + " | ".join(f"{t[s]} ({t[s] / max(1, n):.3f})" for s in PHOTO_STATES) + " |")
+    nm = metrics.get("naming", {})
+    if nm.get("n_pills"):
+        lines += ["", f"Nearest prototype is the pill's own drug for {nm['accuracy']:.3f} of {nm['n_pills']} detected pills "
+                      f"of trained drugs. Removed pills given a wrong name: {nm['removed_misnamed']} of {nm['removed']}, "
+                      f"verdicts {nm['removed_misnamed_verdicts']}."]
+    lines += ["", "## Most confused drug pairs (true -> predicted)", "", "| true | predicted | count | share of true |", "|---|---|---|---|"]
     for c in conf:
         lines.append(f"| {c['true']} {c['true_name']} | {c['predicted']} {c['predicted_name']} | {c['count']} | {c['share_of_true']:.2f} |")
     if timings:
@@ -186,7 +209,8 @@ def run(root: Path, split_path: Path, web_dir: Path | None, out_dir: Path, mode:
     images = load_pill_images(root)
     by = {im.file: im for im in images}
     subset_ims = [by[f] for f in split.subset(subset) if f in by]
-    scenarios = make_scenarios(subset_ims, prescription_drug_table(root), split.unseen_classes, seed=split.seed)
+    untrained = split.untrained_classes(images)
+    scenarios = make_scenarios(subset_ims, prescription_drug_table(root), split.all_unseen_classes(images), seed=split.seed)
     pipe = pipe or PillGuardPipeline.from_dir(web_dir)
     seen = set(pipe.matcher.class_ids)
     names = load_classes(root)
@@ -194,8 +218,16 @@ def run(root: Path, split_path: Path, web_dir: Path | None, out_dir: Path, mode:
     records, spurious, timings = evaluate(pipe, subset_ims, scenarios, root, seen, mode=mode, limit=limit)
     metrics = summarize_records(records)
     conf = confusion_pairs(records, names)
-    img_lvl = image_level(records)
+    img_lvl = image_level(records, spurious)
     metrics["image_level"] = img_lvl
+    metrics["n_photos"] = len({r["file"] for r in records})
+    metrics["n_pills_unique"] = len({(r["file"], r["pill_index"]) for r in records})   # records repeat per scenario
+    metrics["unseen_groups"] = unseen_groups(records, split.unseen_classes, untrained)
+    # a listed drug without a prototype can never be matched: every one of its pills becomes a false alarm
+    blind = sorted({r["label"] for r in records if r["gt"] == "in" and not r["seen"]})
+    metrics["listed_without_prototype"] = blind
+    if blind:
+        print(f"WARNING: listed drugs with no prototype {blind}; their pills cannot be judged in", flush=True)
     metrics["n_spurious_detections"] = len(spurious)
     metrics["spurious_verdicts"] = {v: sum(1 for s in spurious if s["verdict"] == v) for v in ("in", "out", "uncertain")}
     metrics["latency_ms"] = {"median": float(np.median(timings)) if timings else None,

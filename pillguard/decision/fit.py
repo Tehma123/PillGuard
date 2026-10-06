@@ -55,7 +55,8 @@ def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     split = Split.load(split_path)
-    unseen = set(split.unseen_classes)
+    images = load_pill_images(root)
+    unseen = split.all_unseen_classes(images)
     ck = torch.load(ckpt, map_location="cpu", weights_only=False)
     seen = set(int(c) for c in ck["classes"])
     session = ort_session(embed_onnx)
@@ -72,7 +73,6 @@ def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out
     matcher = Matcher(protos)
 
     # 2. validation scenarios -> calibration set
-    images = load_pill_images(root)
     by_file = {im.file: im for im in images}
     val_ims = [by_file[f] for f in split.val if f in by_file]
     scen = make_scenarios(val_ims, prescription_drug_table(root), unseen, seed=split.seed)
@@ -110,7 +110,8 @@ def fit_decision(root: Path, split_path: Path, embed_onnx: Path, ckpt: Path, out
     no_reject = selective_metrics(p_in, cal.y_in, DecisionParams(fitted.temperature, fitted.unknown_bias, 0.5, 0.5))
     report = {
         "n_val_pills": len(y), "n_classes": matcher.n_classes, "prototypes_per_class": k,
-        "unseen_classes": sorted(unseen), "calibration": cal_rep, "thresholds": th_info,
+        "unseen_classes": sorted(unseen), "untrained_classes": split.untrained_classes(images),
+        "calibration": cal_rep, "thresholds": th_info,
         "val_no_reject": no_reject, "val_risk_coverage": risk_coverage_curve(p_in, cal.y_in),
         "val_by_reason": {r: selective_metrics(p_in[np.array(reasons) == r], cal.y_in[np.array(reasons) == r], params)
                           for r in sorted(set(reasons))},
